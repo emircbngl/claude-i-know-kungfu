@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\" pre"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\" post"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "I Know KungFu honesty gate: if you wrote or edited any managed-language code this session (e.g. Gleam) that was NOT verified with kungfu_verify, you must either verify it now or explicitly tell the user it is UNVERIFIED and why. No symbol may be presented as working on the strength of a guess. If you fixed any mistakes this session, capture each as a lesson via kungfu_learn so it is not repeated. If none of this applies, do nothing and say nothing."
+          }
+        ]
+      }
+    ]
+  }
+}

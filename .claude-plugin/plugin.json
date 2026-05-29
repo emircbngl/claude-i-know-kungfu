@@ -1,0 +1,31 @@
+{
+  "name": "i-know-kungfu",
+  "version": "0.1.0",
+  "description": "Claude Code plugin that lets Claude write correctly in languages it does not know — and never pretend to. It grounds every symbol in fetched docs or verified compilation, runs all generated code in a Docker sandbox (the one truth oracle that cannot be faked), and learns from each mistake as a misconception -> correct-model lesson it recalls next time. Tracks an explicit epistemic state (verified / grounded / hypothesis) for everything it writes, keeps a self-improving per-language knowledge base under ~/.kungfu, and measures its own learning curve with a held-out benchmark.",
+  "author": {
+    "name": "emircbngl",
+    "url": "https://github.com/emircbngl"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/emircbngl/claude-i-know-kungfu",
+  "repository": "https://github.com/emircbngl/claude-i-know-kungfu",
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "claude",
+    "anthropic",
+    "mcp",
+    "hallucination",
+    "anti-hallucination",
+    "grounding",
+    "rag",
+    "code-generation",
+    "self-improving",
+    "verification",
+    "docker",
+    "sandbox",
+    "knowledge-base",
+    "epistemic-honesty",
+    "gleam"
+  ]
+}

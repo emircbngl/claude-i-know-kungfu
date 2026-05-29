@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" role="img" aria-label="I Know KungFu — a Claude Code plugin that writes languages it doesn't know without faking it">
+  <defs>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1200" height="300" fill="#0d0208"/>
+  <!-- faint digital rain -->
+  <g font-family="monospace" font-size="19" fill="#00ff41" opacity="0.14">
+    <text x="40"   y="24">1<tspan x="40"   dy="26">0</tspan><tspan x="40" dy="26">1</tspan><tspan x="40" dy="26">1</tspan><tspan x="40" dy="26">0</tspan><tspan x="40" dy="26">1</tspan><tspan x="40" dy="26">0</tspan></text>
+    <text x="120"  y="40">{<tspan x="120" dy="26">}</tspan><tspan x="120" dy="26">0</tspan><tspan x="120" dy="26">1</tspan><tspan x="120" dy="26">;</tspan><tspan x="120" dy="26">0</tspan></text>
+    <text x="210"  y="18">λ<tspan x="210" dy="26">1</tspan><tspan x="210" dy="26">0</tspan><tspan x="210" dy="26">0</tspan><tspan x="210" dy="26">1</tspan><tspan x="210" dy="26">ƒ</tspan><tspan x="210" dy="26">0</tspan></text>
+    <text x="1000" y="30">0<tspan x="1000" dy="26">1</tspan><tspan x="1000" dy="26">0</tspan><tspan x="1000" dy="26">&gt;</tspan><tspan x="1000" dy="26">1</tspan><tspan x="1000" dy="26">0</tspan></text>
+    <text x="1075" y="16">=<tspan x="1075" dy="26">0</tspan><tspan x="1075" dy="26">1</tspan><tspan x="1075" dy="26">1</tspan><tspan x="1075" dy="26">0</tspan></text>
+    <text x="1150" y="44">1<tspan x="1150" dy="26">0</tspan><tspan x="1150" dy="26">[</tspan><tspan x="1150" dy="26">]</tspan><tspan x="1150" dy="26">1</tspan><tspan x="1150" dy="26">0</tspan></text>
+  </g>
+  <g text-anchor="middle" font-family="'Courier New', monospace">
+    <text x="600" y="138" font-size="74" font-weight="bold" fill="#00ff41" filter="url(#glow)" letter-spacing="7">I KNOW KUNGFU</text>
+    <text x="600" y="192" font-size="23" fill="#b9f5c8">Claude writes code in languages it doesn't know — without faking it.</text>
+    <text x="600" y="236" font-size="15" fill="#5ad17e" letter-spacing="4">GROUND → VERIFY → LEARN&#160;&#160;·&#160;&#160;a Claude Code plugin (MCP + Docker)</text>
+  </g>
+</svg>

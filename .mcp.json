@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "kungfu": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${CLAUDE_PLUGIN_ROOT}/server",
+        "kungfu-server"
+      ]
+    }
+  }
+}

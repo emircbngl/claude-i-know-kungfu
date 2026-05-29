@@ -1,0 +1,30 @@
+{
+  "name": "i-know-kungfu-marketplace",
+  "owner": {
+    "name": "emircbngl",
+    "url": "https://github.com/emircbngl"
+  },
+  "metadata": {
+    "description": "Claude Code plugin marketplace for i-know-kungfu — an epistemically honest, self-improving coding layer that grounds, verifies, and learns instead of pretending to know.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "i-know-kungfu",
+      "source": {
+        "source": "github",
+        "repo": "emircbngl/claude-i-know-kungfu",
+        "ref": "main"
+      },
+      "description": "Write correctly in languages Claude does not know — without faking it. Grounds every symbol in fetched docs or verified compilation, runs all generated code in a Docker sandbox, and learns each mistake as a misconception -> correct-model lesson recalled next time. Ships an MCP server, a self-improving per-language knowledge base, and a held-out benchmark that measures its own learning curve.",
+      "version": "0.1.0",
+      "author": {
+        "name": "emircbngl",
+        "url": "https://github.com/emircbngl"
+      },
+      "homepage": "https://github.com/emircbngl/claude-i-know-kungfu",
+      "repository": "https://github.com/emircbngl/claude-i-know-kungfu",
+      "license": "MIT"
+    }
+  ]
+}
