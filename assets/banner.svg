@@ -16,7 +16,7 @@
     <text x="1150" y="44">1<tspan x="1150" dy="26">0</tspan><tspan x="1150" dy="26">[</tspan><tspan x="1150" dy="26">]</tspan><tspan x="1150" dy="26">1</tspan><tspan x="1150" dy="26">0</tspan></text>
   </g>
   <g text-anchor="middle" font-family="'Courier New', monospace">
-    <text x="600" y="138" font-size="74" font-weight="bold" fill="#00ff41" filter="url(#glow)" letter-spacing="7">I KNOW KUNGFU</text>
+    <text x="600" y="138" font-size="74" font-weight="bold" fill="#00ff41" filter="url(#glow)" letter-spacing="7">I KNOW KUNG FU</text>
     <text x="600" y="192" font-size="23" fill="#b9f5c8">Claude writes code in languages it doesn't know — without faking it.</text>
     <text x="600" y="236" font-size="15" fill="#5ad17e" letter-spacing="4">GROUND → VERIFY → LEARN&#160;&#160;·&#160;&#160;a Claude Code plugin (MCP + Docker)</text>
   </g>
