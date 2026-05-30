@@ -1,0 +1,65 @@
+MODULE Sol;
+  (* Reference solution. Oberon-07 has no forward declarations and OBNC forbids
+     sibling-nested-procedure calls, so mutual recursion is expressed with a
+     procedure variable: Factor calls expr() indirectly; Eval assigns expr := Expr
+     before parsing. Shared parser state (src, pos) lives in module globals. *)
+  TYPE ExprProc = PROCEDURE(): INTEGER;
+  VAR
+    src: ARRAY 1024 OF CHAR;
+    pos: INTEGER;
+    expr: ExprProc;
+
+  PROCEDURE Number(): INTEGER;
+    VAR n: INTEGER;
+  BEGIN
+    n := 0;
+    WHILE (src[pos] >= "0") & (src[pos] <= "9") DO
+      n := n * 10 + (ORD(src[pos]) - ORD("0")); INC(pos)
+    END
+    RETURN n
+  END Number;
+
+  PROCEDURE Factor(): INTEGER;
+    VAR v: INTEGER;
+  BEGIN
+    IF src[pos] = "(" THEN
+      INC(pos); v := expr();
+      IF src[pos] = ")" THEN INC(pos) END
+    ELSE
+      v := Number()
+    END
+    RETURN v
+  END Factor;
+
+  PROCEDURE Term(): INTEGER;
+    VAR v: INTEGER; op: CHAR;
+  BEGIN
+    v := Factor();
+    WHILE (src[pos] = "*") OR (src[pos] = "/") DO
+      op := src[pos]; INC(pos);
+      IF op = "*" THEN v := v * Factor() ELSE v := v DIV Factor() END
+    END
+    RETURN v
+  END Term;
+
+  PROCEDURE Expr(): INTEGER;
+    VAR v: INTEGER; op: CHAR;
+  BEGIN
+    v := Term();
+    WHILE (src[pos] = "+") OR (src[pos] = "-") DO
+      op := src[pos]; INC(pos);
+      IF op = "+" THEN v := v + Term() ELSE v := v - Term() END
+    END
+    RETURN v
+  END Expr;
+
+  PROCEDURE Eval*(s: ARRAY OF CHAR): INTEGER;
+    VAR i: INTEGER;
+  BEGIN
+    i := 0;
+    WHILE (i < LEN(src) - 1) & (s[i] # 0X) DO src[i] := s[i]; INC(i) END;
+    src[i] := 0X; pos := 0; expr := Expr
+    RETURN Expr()
+  END Eval;
+
+END Sol.

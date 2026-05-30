@@ -1,77 +1,97 @@
 # Benchmark — an honest evaluation
 
 This project is about not faking things, so this file reports what the evaluation
-**actually** found — including a null result — rather than a flattering curve.
+**actually** found — a null result where the model needs no help, and a real,
+earned delta where it does.
 
 ## Methodology
 
-A **blind‑agent grounding ablation**, scored by the real compiler:
+A **blind‑agent evaluation**, scored by the real compiler:
 
-- For each held‑out task, two fresh, independent coder agents wrote a solution:
-  - **cold** — only the task prompt; no knowledge base, no lookup, no tools.
-  - **warm** — the task prompt plus a concise, doc‑grounded reference card for the
-    language (the kind of grounding `kungfu_lookup` would provide). General
-    reference only — never the task's solution.
-- Neither condition was coached: the author of this repo did not write or hint the
-  solutions. Every solution was compiled/tested in the Docker sandbox
-  (`--network none`) against hidden tests.
-- A "teacher" agent produced each reference card from the official docs (with
-  citations), so even the grounding was agent‑derived, not hand‑authored.
+- For each held‑out task, fresh, independent coder agents wrote a solution
+  **cold** — only the prompt, no knowledge base, no lookup, no tools.
+- **With the plugin** means the `kungfu_verify` loop: the solution is compiled in
+  the Docker sandbox (`--network none`) and, on failure, the agent is given the
+  **real compiler error** and revises (one round here).
+- The author of this repo did not write or hint the solutions. Every solution —
+  cold and revised — was scored against hidden tests in the sandbox and
+  **independently re‑scored** for this table.
 
 ## Results
 
-| evaluation | cold pass@1 | warm pass@1 | delta |
+| evaluation | cold (one‑shot) | with verify loop | delta |
 | --- | --- | --- | --- |
-| Gleam — basic list tasks (map, length, fold product/max), n=4 | 1.00 | 1.00 | 0 |
-| Julia — basic tasks (concat, index, max, length), n=4 | 1.00 | 1.00 | 0 |
-| Oberon — basic tasks (DIV, LEN, mul, add), n=4 | 1.00 | 1.00 | 0 |
-| Gleam **hard** — a 2024 *removed* API (`result.then` → `result.try`), 5 cold samples | 1.00 (5/5) | 1.00 | 0 |
+| Gleam · Julia · Oberon — basic list/string tasks (n=4 each) | 1.00 | 1.00 | 0 |
+| Gleam — a 2024 *removed* API (`result.then` → `result.try`), 5 samples | 1.00 | 1.00 | 0 |
+| **Oberon — recursive‑descent expression parser** (precedence + parens), 6 samples | **0.17** (1/6) | **0.83** (5/6) | **+0.66** |
 
-`selfcheck`: across all three languages the reference solutions compile and pass
-their hidden tests 4/4 offline — the sandboxes and harness are sound.
+## Finding 1 — where the model is already good, the plugin adds nothing
 
-## The finding (honest)
+A current, strong model writes correct Gleam, Julia, and Oberon for basic tasks,
+and it even uses the *current* API that replaced a removed one (5/5 cold agents
+used `result.try`, not the removed `result.then`). There is **no pass@1 gap**, so
+this repo reports none.
 
-**A current, strong model already writes correct code in all three languages —
-Gleam, Julia, and even niche Oberon‑07 — and it knows their *current* APIs**
-(every one of 5 cold agents used `result.try`, not the removed `result.then`).
-On the tasks tried there is **no pass@1 gap between cold and warm**, so this repo
-reports none.
+> An earlier version showed a `0.50 → 1.00` "learning curve." It was **staged** —
+> the "cold" solutions were hand‑picked to fail (2 of 4 wrong, then fixed). The
+> compiler verdicts were real, but the *delta* was an artifact of construction.
+> It was removed; staging a number is exactly what this project exists to prevent.
 
-An earlier version showed a `0.50 → 1.00` curve. That was **staged** — the
-"cold" solutions were hand‑picked to fail (2 of 4 wrong, then fixed). The
-compiler verdicts in it were real, but the *delta* was an artifact of
-construction. It has been removed; staging a number is precisely what this
-project exists to prevent.
+## Finding 2 — where the model struggles, the verify loop earns its keep
 
-## What this means for the plugin's value
+A full integer‑expression parser (`+ - * /`, precedence, parentheses) in
+**Oberon‑07** hits the language's sharpest edge. It needs mutual recursion
+(`expr → term → factor → expr`), but Oberon‑07 has **no forward declarations**,
+and OBNC additionally forbids calling a *sibling* nested procedure or accessing an
+enclosing procedure's locals. The obvious approaches do not compile.
 
-The value is **not** capability uplift on tasks the model can already do (it can).
-It is:
+**Cold (one‑shot, 6 fresh agents):**
 
-1. **Verification, not trust** — the sandbox converts *"probably right"* into
-   *"verified right."* On these tasks the model was right; you only *know* that
-   because it was compiled and tested.
-2. **Honesty** — nothing ungrounded or unrun is presented as done.
-3. **Catching the real misses** — fabrication still happens on genuinely
-   out‑of‑distribution surface (post‑cutoff library versions, proprietary or very
-   obscure APIs). That is the regime the plugin is for.
+| approach taken | result | real OBNC verdict |
+| --- | --- | --- |
+| `FORWARD;` declaration | ❌ | `syntax error … expecting END` (Oberon‑07 has no FORWARD) |
+| repeat‑heading forward decl | ❌ | `undeclared identifier: Number` |
+| flat mutually‑recursive procs | ❌ | `undeclared identifier: Factor` |
+| nested proc using enclosing locals | ❌ | `undeclared identifier: pos` |
+| **procedure variable** (`expr: ExprProc`) | ✅ | compiles, all asserts pass |
+| (one agent) | ⊘ | **honestly refused to guess** without a compiler to check against |
 
-## What would demonstrate an uplift (future work, not claimed)
+→ **cold pass@1 = 1/6 (0.17).**
 
-Tasks whose correct answer is genuinely outside the model's training: a library
-released after the model's cutoff, a proprietary/internal API, or a brand‑new
-language version with breaking changes. Verifying those generally needs network
-access for dependencies (`docker.network: "bridge"`), so they fall outside this
-offline, self‑contained suite. Until such an eval is run, no capability‑uplift
-number is claimed.
+**With the verify loop:** feed each of the four compile failures its real OBNC
+error once. All four diagnose the actual constraint and restructure correctly —
+a nested chain `Expr ⊃ Term ⊃ Factor`, a module‑level procedure with a `VAR pos`
+parameter, a procedure variable. **4/4 recover.**
+
+→ **with the loop, pass@1 = 5/6 (0.83), a +0.66 swing — driven entirely by
+execution feedback, not by us.**
+
+The task is reproducible at `server/bench/oberon/test/ob_calc/` (prompt + hidden
+grader + a reference solution).
+
+## What it means
+
+- The plugin does **not** make a capable model able to do what it already can.
+- It **does** convert *"probably right"* into *"verified right,"* and on a task
+  hard enough to break one‑shot generation it turns a 17% success rate into 83% —
+  because the compiler, not trust, is in the loop. One agent even declined to
+  guess, which is the same instinct the plugin enforces mechanically.
+
+## Caveats
+
+- Small samples (n = 4–6 per row), one model, one verify‑fix round. Directional,
+  not a leaderboard.
+- The hard‑task cold solutions are real blind attempts; the verify‑loop revisions
+  are real agent fixes prompted only by the compiler error. All independently
+  re‑scored in the sandbox.
 
 ## Reproduce
 
 ```text
-docker build -t kungfu-gleam:latest server/sandbox/gleam
-/kungfu-bench gleam selfcheck     # reference solutions: expect 4/4
+docker build -t kungfu-oberon:latest server/sandbox/oberon
+/kungfu-bench oberon selfcheck     # reference solutions: expect all pass
 ```
 
-The blind‑agent ablation is an agent protocol (fresh coder agents, cold vs warm,
-scored via `kungfu_verify`); the scoring harness lives in `server/kungfu/bench.py`.
+The blind‑agent protocol (fresh agents, cold vs. verify‑fix, scored via
+`kungfu_verify`) is driven by the skill; the scoring harness is
+`server/kungfu/bench.py`.

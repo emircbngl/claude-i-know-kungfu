@@ -73,14 +73,19 @@ The MCP server is the **librarian**, not the brain: it stores, retrieves, verifi
 
 The honest part. I ran a **blind‑agent evaluation**: fresh agents solved held‑out tasks with no help (**cold**) vs. with a doc‑grounded reference card (**warm**); every solution was scored by the real compiler in the sandbox. I did not hand‑write or coach the solutions.
 
-| eval | cold pass@1 | warm pass@1 | delta |
+| evaluation | cold (one‑shot, no help) | with the plugin's verify loop | delta |
 | --- | --- | --- | --- |
-| Gleam · Julia · Oberon (basic list/string tasks) | 1.00 | 1.00 | **0** |
-| Gleam **hard** — a 2024 *removed* API (`result.then` → `result.try`) | 1.00 (5/5) | 1.00 | **0** |
+| Gleam · Julia · Oberon — basic list/string tasks | 1.00 | 1.00 | **0** |
+| Gleam — a 2024 *removed* API (`result.then` → `result.try`), 5 samples | 1.00 | 1.00 | **0** |
+| **Oberon — a recursive‑descent expression parser** (precedence + parens), 6 samples | **0.17** (1/6) | **0.83** (5/6) | **+0.66** ✅ |
 
-**The honest finding: a current, strong model already writes correct code in all three languages — even using the up‑to‑date API that replaced a removed one.** There is no pass@1 gap to show, so this repo shows none. (An earlier version of this README displayed a `0.50 → 1.00` "learning curve"; that was a *staged* demonstration with hand‑picked failures, so it was removed — staging a number is exactly what this project exists to prevent.)
+**Two honest findings:**
 
-So the plugin's value is **not** "the model can't, and we make it" — it demonstrably can. The value is the **guarantee**: it converts *"probably right"* into *"verified right,"* refuses to present anything it did not ground or run, and catches the cases — genuinely out‑of‑distribution APIs, post‑cutoff versions — where the model *is* wrong. Demonstrating a capability gap would require tasks truly outside the model's training; that is future work, and **not claimed here**.
+1. **On tasks the model already knows, the plugin adds no pass@1 — and this repo says so** rather than staging a win. A current model writes correct Gleam/Julia/Oberon for basic tasks, and even uses the *current* API that replaced a removed one. (An earlier README showed a `0.50 → 1.00` "learning curve"; it was *staged* with hand‑picked failures and was removed — faking a number is exactly what this project opposes.)
+
+2. **Push to a genuinely hard task and the gap appears — then the verify loop closes it.** A full expression parser in Oberon‑07 hits the language's sharpest edge: it needs mutual recursion, but Oberon‑07 has **no forward declarations** (and OBNC also forbids calling a *sibling* nested procedure). One‑shot, **4 of 6** fresh agents failed to compile — reaching for `FORWARD` or flat mutual recursion; one honestly *refused to guess*; only one compiled (**cold pass@1 = 1/6**). Feed each failure its **real compiler error once** — the plugin's `kungfu_verify` loop — and all four diagnose the constraint and restructure correctly (**with the loop, 5/6**). Every number is from the real OBNC compiler, independently re‑scored; the task is reproducible at `server/bench/oberon/test/ob_calc`.
+
+That second row is the whole thesis in one line: **the plugin earns its keep exactly where the model struggles — and it's execution feedback, not trust, that fixes it.**
 
 ## Install
 
@@ -122,14 +127,14 @@ Files are the source of truth; every `.md` index is a regenerated view. Retrieva
 
 ## Design notes (honest about prior art)
 
-Builds on established ideas — retrieval‑augmented generation (RAG), self‑repair / self‑debugging loops, reflexion‑style memory, and Context7 documentation retrieval. What's distinctive is the *integration into one epistemically‑honest agent*: lessons grounded in **verified execution** and keyed by the **misconception** (not a string), an explicit **epistemic‑state gate** that blocks ungrounded output, **negative knowledge** as a first‑class anti‑hallucination tool, and a benchmark that **reports null results instead of staging wins**. "Self‑training" means a growing external knowledge base — **not** changes to model weights.
+Builds on established ideas — retrieval‑augmented generation (RAG), self‑repair / self‑debugging loops, reflexion‑style memory, and Context7 documentation retrieval. What's distinctive is the *integration into one epistemically‑honest agent*: lessons grounded in **verified execution** and keyed by the **misconception** (not a string), an explicit **epistemic‑state gate** that blocks ungrounded output, **negative knowledge** as a first‑class anti‑hallucination tool, and a benchmark that **reports honest numbers — null where the model needs no help, a real delta where it does — instead of staging wins**. "Self‑training" means a growing external knowledge base — **not** changes to model weights.
 
 ## Status & limitations
 
-- **Verification works end‑to‑end on a Docker host.** Sandboxes for **Gleam, Julia, and Oberon** (the last builds the OBNC compiler from source) build and self‑check 4/4 offline (`--network none`).
+- **Verification works end‑to‑end on a Docker host.** Sandboxes for **Gleam, Julia, and Oberon** (the last builds the OBNC compiler from source) build and self‑check offline (`--network none`).
 - Pure logic (knowledge store, learn engine, verifier control flow, benchmark harness) is covered by a unit‑test suite: `uv run --extra dev pytest` → **38 passing**. The codebase also passed a max‑effort multi‑agent self‑review (14 findings fixed).
 - **Honesty holds in the failure path:** with Docker stopped, `kungfu_verify` returns a structured "cannot verify" and the bench marks runs not measurable — it never fakes a pass or invents numbers.
-- **No capability‑uplift claim.** A real blind‑agent eval found no pass@1 gap for a current model on the tasks tried (see above) — the plugin's value is verification & honesty, not making the model able to do what it already can. Showing an uplift would require genuinely out‑of‑distribution APIs; that is future work.
+- **Where the plugin helps — measured, not asserted.** On tasks the model already knows, no pass@1 uplift (and the repo says so). On a genuinely hard task — an Oberon‑07 recursive‑descent parser that hits the no‑forward‑declarations trap — the gap is real and the verify‑fix loop closes it: one‑shot **1/6 → 5/6** with the loop. The value is verification + honesty + closing that gap, not making the model able to do what it already can.
 
 ## Repository layout
 
