@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="I Know KungFu — a Claude Code plugin that lets Claude write code in programming languages it doesn't know, without hallucinating, by grounding every symbol in real docs or a real compiler" width="100%">
+  <img src="assets/banner.svg" alt="I Know KungFu — a Claude Code plugin that grounds and verifies code instead of trusting the model's memory" width="100%">
 </p>
 
 <p align="center">
@@ -8,21 +8,20 @@
   <img src="https://img.shields.io/badge/MCP-FastMCP-1f6feb.svg" alt="Model Context Protocol server">
   <img src="https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg" alt="Claude Code plugin">
   <img src="https://img.shields.io/badge/tests-38%20passing-2ea043.svg" alt="38 tests passing">
-  <img src="https://img.shields.io/badge/languages-Gleam%20%C2%B7%20Julia%20%C2%B7%20Oberon-00ff41.svg" alt="Demos: Gleam, Julia, Oberon">
   <img src="https://img.shields.io/badge/verified-Docker%20sandbox-2496ED.svg?logo=docker&logoColor=white" alt="Verified in a Docker sandbox">
 </p>
 
 > *"I know kung fu."* — *"Show me."*
 
-**I Know KungFu** is a [Claude Code](https://docs.claude.com/en/docs/claude-code) plugin that lets Claude write **correct code in programming languages it does not know** — niche or brand‑new languages, DSLs, post‑training‑cutoff library versions — and, crucially, **never pretend** to. It is an **anti‑hallucination** layer for LLM code generation: every symbol is grounded in real documentation or proven by a real compiler in a Docker sandbox, and every mistake becomes a lesson it recalls next time.
+**I Know KungFu** is a [Claude Code](https://docs.claude.com/en/docs/claude-code) plugin that makes Claude **prove its code instead of trusting its memory** — and **never pretend** to know. When Claude writes a language or API it is unsure of, the plugin grounds every symbol in real documentation, compiles/tests it in a Docker sandbox, and turns each genuine mistake into a lesson it recalls next time. It is an **anti‑hallucination / verification layer** for LLM code generation.
 
-It ships an **MCP server**, a self‑improving per‑language **knowledge base**, an **honesty gate** (hooks), and a **benchmark** that measures its own learning curve.
+It ships an **MCP server**, a self‑improving per‑language **knowledge base**, an **honesty gate** (hooks), and a **benchmark harness** with an honestly‑reported evaluation (see [below](#what-a-real-evaluation-actually-showed) and [BENCHMARK.md](BENCHMARK.md)).
 
 ---
 
 ## What if I told you…
 
-…that when you ask an LLM for code in a language it never really learned, its failure mode is **confident fabrication**: it pattern‑matches plausible‑but‑nonexistent syntax and APIs from languages it *does* know. Telling a model "don't make things up" barely helps. Only two things reliably stop fabrication:
+…that when you ask an LLM for code in territory it never really learned — a niche language, a post‑training‑cutoff API, an obscure library — its failure mode is **confident fabrication**: plausible‑but‑nonexistent syntax invented from languages it *does* know. Telling a model "don't make things up" barely helps. Only two things reliably stop fabrication:
 
 - **Grounding** — back every claim with a real, cited source.
 - **Execution** — run the compiler; it is the one oracle that cannot be faked.
@@ -47,7 +46,7 @@ Every symbol Claude writes carries an **epistemic state**, and behavior is gated
 
 ```mermaid
 flowchart LR
-    A[Task in an<br/>unknown language] --> S["kungfu_status"]
+    A[Task in an<br/>unfamiliar language] --> S["kungfu_status"]
     S --> L["kungfu_lookup<br/>skeleton + lessons"]
     L --> W[Write code]
     W --> V["kungfu_verify<br/>Docker truth oracle"]
@@ -62,44 +61,28 @@ flowchart LR
 | **Retrieve** | Fetch real syntax/library docs (Context7 + WebFetch), shard per language under `~/.kungfu`, load only what's needed. Records **negative knowledge** — what does *not* exist. |
 | **Verify** | Compile / type‑check / test generated code in a locked Docker sandbox. If Docker is down, it says so — it never fakes a pass. |
 | **Learn** | Turn each mistake into a **misconception → correct‑model** lesson, keyed by the flawed reasoning so it is recalled the next time that reasoning recurs. Recurring lessons roll up into a structural **skeleton** of the language. |
-| **Measure** | A held‑out benchmark scores competence **cold** (empty KB) vs **warm** (after learning) and renders a learning curve. Never reports faked numbers. |
+| **Measure** | A blind‑agent benchmark harness that scores solutions in the sandbox and reports **honest numbers — including null results.** No staged curves. |
 
 > *"I can only show you the door. You're the one that has to walk through it."*
 
 The MCP server is the **librarian**, not the brain: it stores, retrieves, verifies, and benchmarks, and it **never calls an LLM**. All judgment — what to fetch, how to distil, what to write — stays with Claude.
 
-## The proof: it measurably learns
-
-Most "self‑improving" claims are vibes. This one is measured in the real compiler.
-
-<p align="center">
-  <img src="assets/learning-curve.svg" alt="Bar chart of the Gleam benchmark: pass@1 rises from 0.50 cold to 1.00 warm; hallucinated-symbol rate falls from 0.25 cold to 0.00 warm" width="640">
-</p>
-
-On a held‑out set of Gleam tasks, going from an empty knowledge base to one that has learned the language's fold idiom:
-
-| metric | cold (no KB) | warm (after learning) | delta |
-| --- | --- | --- | --- |
-| pass@1 | 0.50 | 1.00 | **+0.50** ✅ |
-| hallucinated‑symbol rate | 0.25 | 0.00 | **−0.25** ✅ |
-
-The mistakes the sandbox caught are the exact cross‑language carry‑overs an LLM makes — `list.fold_left` (from OCaml/Elm — doesn't exist in Gleam) and `list.reduce` with the wrong arity (from JS/Python). Full methodology, the audited candidate solutions, and reproduce steps are in **[BENCHMARK.md](BENCHMARK.md)**.
-
-## Demos — three languages, one result
-
-Each demo is a real, **Docker‑verified** cold→warm run on a held‑out task split. Cold = Claude's natural cross‑language guesses; warm = after the plugin learned the idiom. Every number comes from the real compiler in the sandbox (`--network none`).
-
-| language | cold → warm pass@1 | the caught cross‑language mistake | demo |
-| --- | --- | --- | --- |
-| **Gleam** (BEAM, v1.15) | 0.50 → **1.00** | `list.fold_left` / `list.reduce` → `list.fold` | [demos/gleam.md](demos/gleam.md) |
-| **Julia** (1.11) | 0.50 → **1.00** | `"a" + "b"` → `"a" * "b"`; `v[1]` → `v[2]` (1‑based) | [demos/julia.md](demos/julia.md) |
-| **Oberon** (OBNC 0.17, built from source) | 0.50 → **1.00** | `n / 2` → `n DIV 2`; `LENGTH(a)` → `LEN(a)` | [demos/oberon.md](demos/oberon.md) |
-
-Three languages from three different worlds — a young BEAM language, a scientific dynamic language, and a niche Wirth language with no official toolchain — and the same result: **the sandbox catches the cross‑language hallucination, and the lesson fixes it.**
-
-## Install
+## What a real evaluation actually showed
 
 > *"Welcome to the real world."*
+
+The honest part. I ran a **blind‑agent evaluation**: fresh agents solved held‑out tasks with no help (**cold**) vs. with a doc‑grounded reference card (**warm**); every solution was scored by the real compiler in the sandbox. I did not hand‑write or coach the solutions.
+
+| eval | cold pass@1 | warm pass@1 | delta |
+| --- | --- | --- | --- |
+| Gleam · Julia · Oberon (basic list/string tasks) | 1.00 | 1.00 | **0** |
+| Gleam **hard** — a 2024 *removed* API (`result.then` → `result.try`) | 1.00 (5/5) | 1.00 | **0** |
+
+**The honest finding: a current, strong model already writes correct code in all three languages — even using the up‑to‑date API that replaced a removed one.** There is no pass@1 gap to show, so this repo shows none. (An earlier version of this README displayed a `0.50 → 1.00` "learning curve"; that was a *staged* demonstration with hand‑picked failures, so it was removed — staging a number is exactly what this project exists to prevent.)
+
+So the plugin's value is **not** "the model can't, and we make it" — it demonstrably can. The value is the **guarantee**: it converts *"probably right"* into *"verified right,"* refuses to present anything it did not ground or run, and catches the cases — genuinely out‑of‑distribution APIs, post‑cutoff versions — where the model *is* wrong. Demonstrating a capability gap would require tasks truly outside the model's training; that is future work, and **not claimed here**.
+
+## Install
 
 Prerequisites: **Python 3.11+**, [**uv**](https://docs.astral.sh/uv/), and **Docker** (for verification; the plugin degrades honestly without it).
 
@@ -116,15 +99,8 @@ The MCP server starts automatically via `.mcp.json` (`uv` resolves dependencies 
 /kungfu-status gleam              # what's known? is the verifier up?
 /kungfu-teach gleam               # cold-start: fetch docs, distil a skeleton, verify seeds
 "write a Gleam function that …"   # the skill drives: lookup → write → verify → learn
+/kungfu-verify gleam <files>      # compile/test it in the sandbox — the truth oracle
 /kungfu-bench gleam selfcheck     # sanity-check the suite + sandbox
-```
-
-Then the headline:
-
-```text
-/kungfu-bench gleam cold          # solve held-out tasks with no KB
-/kungfu-bench gleam warm          # learn from the train split, then re-solve
-/kungfu-bench gleam report        # write the cold-vs-warm learning curve to BENCHMARK.md
 ```
 
 ### MCP tools
@@ -146,14 +122,14 @@ Files are the source of truth; every `.md` index is a regenerated view. Retrieva
 
 ## Design notes (honest about prior art)
 
-This builds on established ideas — retrieval‑augmented generation (RAG), self‑repair / self‑debugging loops, reflexion‑style memory, and Context7 documentation retrieval. What's novel is the *integration into one epistemically‑honest agent*: lessons grounded in **verified execution** and keyed by the **misconception** (not a string), an explicit **epistemic‑state gate** that blocks ungrounded output, **negative knowledge** as a first‑class anti‑hallucination tool, and a **measured learning curve**. "Self‑training" here means a growing external knowledge base — **not** changes to model weights.
+Builds on established ideas — retrieval‑augmented generation (RAG), self‑repair / self‑debugging loops, reflexion‑style memory, and Context7 documentation retrieval. What's distinctive is the *integration into one epistemically‑honest agent*: lessons grounded in **verified execution** and keyed by the **misconception** (not a string), an explicit **epistemic‑state gate** that blocks ungrounded output, **negative knowledge** as a first‑class anti‑hallucination tool, and a benchmark that **reports null results instead of staging wins**. "Self‑training" means a growing external knowledge base — **not** changes to model weights.
 
 ## Status & limitations
 
-- **Validated end‑to‑end on a Docker host across three languages — Gleam, Julia, and Oberon.** Each sandbox builds, its held‑out suite self‑checks 4/4, and the cold→warm run produces a real learning curve (pass@1 0.50 → 1.00 for all three; see [demos/](demos/)). Verification runs offline (`--network none`).
+- **Verification works end‑to‑end on a Docker host.** Sandboxes for **Gleam, Julia, and Oberon** (the last builds the OBNC compiler from source) build and self‑check 4/4 offline (`--network none`).
 - Pure logic (knowledge store, learn engine, verifier control flow, benchmark harness) is covered by a unit‑test suite: `uv run --extra dev pytest` → **38 passing**. The codebase also passed a max‑effort multi‑agent self‑review (14 findings fixed).
 - **Honesty holds in the failure path:** with Docker stopped, `kungfu_verify` returns a structured "cannot verify" and the bench marks runs not measurable — it never fakes a pass or invents numbers.
-- *Limitations:* each benchmark is a mechanism demonstration (n = 4 held‑out tasks per language) whose cold/warm candidate solutions are documented and human‑audited (see BENCHMARK.md and demos/), not produced by a blind cold model. Sandboxes verify the cached stdlib surface offline; projects needing extra third‑party packages require `docker.network: "bridge"`. Bump sandbox image tags as releases land.
+- **No capability‑uplift claim.** A real blind‑agent eval found no pass@1 gap for a current model on the tasks tried (see above) — the plugin's value is verification & honesty, not making the model able to do what it already can. Showing an uplift would require genuinely out‑of‑distribution APIs; that is future work.
 
 ## Repository layout
 
@@ -164,12 +140,12 @@ hooks/             honesty-gate hooks + gate.py
 skills/            i-know-kungfu/SKILL.md + references/
 commands/          /kungfu-* commands
 server/            FastMCP server (kungfu/), Docker sandboxes, bench suite, tests
-assets/            banner + learning-curve visuals
+assets/            banner
 ```
 
 ## Keywords
 
-Claude Code plugin · MCP server · anti‑hallucination · LLM code generation · grounding · retrieval‑augmented generation · Docker sandbox verification · self‑improving agent · epistemic honesty · learn from mistakes · unknown programming languages · Gleam · FastMCP · Anthropic Claude.
+Claude Code plugin · MCP server · anti‑hallucination · LLM code generation · grounding · retrieval‑augmented generation · Docker sandbox verification · code verification · epistemic honesty · learn from mistakes · FastMCP · Anthropic Claude.
 
 ## Star history
 

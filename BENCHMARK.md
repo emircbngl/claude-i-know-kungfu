@@ -1,95 +1,77 @@
-# Benchmark — does it actually learn?
+# Benchmark — an honest evaluation
 
-This is the claim the whole project rests on, so it is *measured*, not asserted.
-Every verdict below comes from the real Gleam compiler running in the Docker
-sandbox (`kungfu-gleam`, base `ghcr.io/gleam-lang/gleam:v1.15.0-erlang-alpine`)
-with `--network none`.
+This project is about not faking things, so this file reports what the evaluation
+**actually** found — including a null result — rather than a flattering curve.
 
 ## Methodology
 
-- **Suite:** per-language tasks under `server/bench/<lang>/`, split into **train**
-  and **test**. Each task is a prompt plus hidden tests run in the sandbox. The
-  agent learns only from `train`; `test` is held out for scoring.
-- **Two runs over the held-out `test` split:**
-  - **cold** — solutions written with no knowledge base, reflecting the natural
-    cross-language guesses a Gleam-naive model makes.
-  - **warm** — solutions after the fold lesson has been learned.
-- **Metrics:** pass@1 (hidden tests pass; higher better), hallucinated-symbol
-  rate (compiler reported an unknown identifier; lower better), mean
-  self-correction iterations (lower better).
+A **blind‑agent grounding ablation**, scored by the real compiler:
 
-A run is reported only if **measurable** (Docker available, code actually
-verified). Otherwise the table says so — no numbers are invented.
+- For each held‑out task, two fresh, independent coder agents wrote a solution:
+  - **cold** — only the task prompt; no knowledge base, no lookup, no tools.
+  - **warm** — the task prompt plus a concise, doc‑grounded reference card for the
+    language (the kind of grounding `kungfu_lookup` would provide). General
+    reference only — never the task's solution.
+- Neither condition was coached: the author of this repo did not write or hint the
+  solutions. Every solution was compiled/tested in the Docker sandbox
+  (`--network none`) against hidden tests.
+- A "teacher" agent produced each reference card from the official docs (with
+  citations), so even the grounding was agent‑derived, not hand‑authored.
 
-> **Transparency.** The cold/warm candidate solutions are *documented and shown
-> below*, then scored by the real compiler — this is an auditable, reproducible
-> demonstration, not a blind model eval (the blind eval is what the plugin does
-> per session at runtime). The easy tasks (`map`, `length`) need no
-> cross-language-risky API, so they pass in both runs; the fold tasks are where
-> the knowledge base earns its keep.
+## Results
 
-## Selfcheck (suite + sandbox health)
-
-Reference solutions for all four held-out tasks compile and pass their hidden
-tests: **pass@1 = 1.0 (4/4)**, hallucinated-symbol rate 0.0. The harness is sound.
-
-## Results — learning curve (held-out test split, n = 4)
-
-| metric | cold (no KB) | warm (after learning) | delta |
+| evaluation | cold pass@1 | warm pass@1 | delta |
 | --- | --- | --- | --- |
-| pass@1 | 0.50 | 1.00 | **+0.50** ✅ |
-| hallucinated-symbol rate | 0.25 | 0.00 | **−0.25** ✅ |
-| mean self-correction iters | 1 | 1 | +0 |
+| Gleam — basic list tasks (map, length, fold product/max), n=4 | 1.00 | 1.00 | 0 |
+| Julia — basic tasks (concat, index, max, length), n=4 | 1.00 | 1.00 | 0 |
+| Oberon — basic tasks (DIV, LEN, mul, add), n=4 | 1.00 | 1.00 | 0 |
+| Gleam **hard** — a 2024 *removed* API (`result.then` → `result.try`), 5 cold samples | 1.00 (5/5) | 1.00 | 0 |
 
-Per-task:
+`selfcheck`: across all three languages the reference solutions compile and pass
+their hidden tests 4/4 offline — the sandboxes and harness are sound.
 
-| task | needs | cold verdict | warm verdict |
-| --- | --- | --- | --- |
-| `double_list` | `list.map` | ✅ pass | ✅ pass |
-| `list_length` | `list.length` | ✅ pass | ✅ pass |
-| `list_product` | left fold | ❌ `list.fold_left` does not exist | ✅ `list.fold` |
-| `list_max` | left fold | ❌ `list.reduce` wrong arity | ✅ `list.fold` |
+## The finding (honest)
 
-## The mistakes the oracle caught (real compiler output)
+**A current, strong model already writes correct code in all three languages —
+Gleam, Julia, and even niche Oberon‑07 — and it knows their *current* APIs**
+(every one of 5 cold agents used `result.try`, not the removed `result.then`).
+On the tasks tried there is **no pass@1 gap between cold and warm**, so this repo
+reports none.
 
-| natural cross-language guess | compiler verdict | correct (Gleam) |
-| --- | --- | --- |
-| `list.fold_left(items, acc, fn)` | `error: Unknown module value` — *the module `gleam/list` does not have a `fold_left` value* | `list.fold(items, acc, fn)` |
-| `list.reduce(items, acc, fn)` | `error: Incorrect arity` — `list.reduce` takes `(list, fn)` and returns `Result` | `list.fold(items, acc, fn)` |
+An earlier version showed a `0.50 → 1.00` curve. That was **staged** — the
+"cold" solutions were hand‑picked to fail (2 of 4 wrong, then fixed). The
+compiler verdicts in it were real, but the *delta* was an artifact of
+construction. It has been removed; staging a number is precisely what this
+project exists to prevent.
 
-These are the exact carry-overs an LLM makes from OCaml/Elm (`fold_left`) and
-JS/Python (`reduce`). The sandbox refuses them; memory alone would not.
+## What this means for the plugin's value
 
-## The learn loop (real)
+The value is **not** capability uplift on tasks the model can already do (it can).
+It is:
 
-1. `kungfu_verify` on the `fold_left` solution → **fail**, `unknown_symbols = ['fold_left']`.
-2. `kungfu_learn` stores a lesson — misconception "Gleam folds with fold_left/reduce
-   like other FP languages", trigger "folding a list to a single value",
-   wrong→right (`list.fold_left` → `list.fold`), classified `SEMANTIC`,
-   `verified=true`; it is rolled up into `skeleton.md`.
-3. `kungfu_lookup("folding a list to a single value")` → the lesson is recalled.
+1. **Verification, not trust** — the sandbox converts *"probably right"* into
+   *"verified right."* On these tasks the model was right; you only *know* that
+   because it was compiled and tested.
+2. **Honesty** — nothing ungrounded or unrun is presented as done.
+3. **Catching the real misses** — fabrication still happens on genuinely
+   out‑of‑distribution surface (post‑cutoff library versions, proprietary or very
+   obscure APIs). That is the regime the plugin is for.
 
-So on the next fold task the correct shape is in front of the agent *before* it
-writes — which is exactly the cold→warm jump above.
+## What would demonstrate an uplift (future work, not claimed)
+
+Tasks whose correct answer is genuinely outside the model's training: a library
+released after the model's cutoff, a proprietary/internal API, or a brand‑new
+language version with breaking changes. Verifying those generally needs network
+access for dependencies (`docker.network: "bridge"`), so they fall outside this
+offline, self‑contained suite. Until such an eval is run, no capability‑uplift
+number is claimed.
 
 ## Reproduce
 
-Requires Docker running.
-
 ```text
-docker build -t kungfu-gleam:latest server/sandbox/gleam   # or let kungfu_verify build it lazily
+docker build -t kungfu-gleam:latest server/sandbox/gleam
 /kungfu-bench gleam selfcheck     # reference solutions: expect 4/4
-/kungfu-bench gleam cold
-/kungfu-bench gleam warm
-/kungfu-bench gleam report        # regenerates the curve above
 ```
 
-## Limitations (honest)
-
-- n = 4 held-out tasks, one language — a demonstration of the mechanism, not a
-  broad eval. The harness scales to more tasks/languages; that is the next step.
-- The cold/warm candidates are documented and human-audited (shown above), not
-  generated by a blind cold model. The blind version is the plugin's real
-  runtime behavior; reproducing it as an automated eval is future work.
-- `mean self-correction iters` is 1 here because each candidate was scored once;
-  it becomes meaningful when the agent iterates fix→verify in the live loop.
+The blind‑agent ablation is an agent protocol (fresh coder agents, cold vs warm,
+scored via `kungfu_verify`); the scoring harness lives in `server/kungfu/bench.py`.

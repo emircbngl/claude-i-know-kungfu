@@ -1,5 +1,5 @@
 ---
-description: Measure the learning curve — cold (no KB) vs warm (after learning) on held-out tasks.
+description: Measure cold (no KB) vs warm (with grounding) pass rates on held-out tasks — reports honest numbers, including null results.
 argument-hint: [language] [list|selfcheck|cold|warm|report]
 ---
 
