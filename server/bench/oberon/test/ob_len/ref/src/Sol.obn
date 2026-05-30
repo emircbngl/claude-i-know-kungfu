@@ -1,0 +1,8 @@
+MODULE Sol;
+
+  PROCEDURE Size*(a: ARRAY OF INTEGER): INTEGER;
+  BEGIN
+    RETURN LEN(a)
+  END Size;
+
+END Sol.

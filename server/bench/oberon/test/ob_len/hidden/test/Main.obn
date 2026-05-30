@@ -1,0 +1,9 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+  VAR a: ARRAY 5 OF INTEGER;
+
+BEGIN
+  ASSERT(Sol.Size(a) = 5)
+END Main.

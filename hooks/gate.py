@@ -15,7 +15,12 @@ import sys
 from pathlib import Path
 
 # Fallback if config.json does not exist yet (mirrors config.default_config()).
-_DEFAULT_MANAGED = {".gleam": ("gleam", True), ".py": ("python", False)}
+_DEFAULT_MANAGED = {
+    ".gleam": ("gleam", True),
+    ".jl": ("julia", True),
+    ".obn": ("oberon", True),
+    ".py": ("python", False),
+}
 
 
 def kungfu_home() -> Path:

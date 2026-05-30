@@ -33,6 +33,8 @@ def default_config() -> dict[str, Any]:
         "version": CONFIG_VERSION,
         "managed_languages": {
             "gleam": {"extensions": [".gleam"], "managed": True},
+            "julia": {"extensions": [".jl"], "managed": True},
+            "oberon": {"extensions": [".obn"], "managed": True},
             "python": {"extensions": [".py"], "managed": False},
         },
         "docker": {

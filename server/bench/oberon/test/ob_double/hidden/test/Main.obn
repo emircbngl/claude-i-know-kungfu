@@ -1,0 +1,8 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+BEGIN
+  ASSERT(Sol.Double(21) = 42);
+  ASSERT(Sol.Double(0) = 0)
+END Main.

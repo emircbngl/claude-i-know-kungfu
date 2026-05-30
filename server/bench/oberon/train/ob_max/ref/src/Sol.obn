@@ -1,0 +1,14 @@
+MODULE Sol;
+
+  PROCEDURE Max*(a: ARRAY OF INTEGER; n: INTEGER): INTEGER;
+    VAR i, m: INTEGER;
+  BEGIN
+    m := a[0]; i := 1;
+    WHILE i < n DO
+      IF a[i] > m THEN m := a[i] END;
+      INC(i)
+    END;
+    RETURN m
+  END Max;
+
+END Sol.

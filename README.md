@@ -7,7 +7,8 @@
   <img src="https://img.shields.io/badge/python-3.11%2B-3776AB.svg?logo=python&logoColor=white" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/MCP-FastMCP-1f6feb.svg" alt="Model Context Protocol server">
   <img src="https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg" alt="Claude Code plugin">
-  <img src="https://img.shields.io/badge/tests-37%20passing-2ea043.svg" alt="37 tests passing">
+  <img src="https://img.shields.io/badge/tests-38%20passing-2ea043.svg" alt="38 tests passing">
+  <img src="https://img.shields.io/badge/languages-Gleam%20%C2%B7%20Julia%20%C2%B7%20Oberon-00ff41.svg" alt="Demos: Gleam, Julia, Oberon">
   <img src="https://img.shields.io/badge/verified-Docker%20sandbox-2496ED.svg?logo=docker&logoColor=white" alt="Verified in a Docker sandbox">
 </p>
 
@@ -84,6 +85,18 @@ On a held‑out set of Gleam tasks, going from an empty knowledge base to one th
 
 The mistakes the sandbox caught are the exact cross‑language carry‑overs an LLM makes — `list.fold_left` (from OCaml/Elm — doesn't exist in Gleam) and `list.reduce` with the wrong arity (from JS/Python). Full methodology, the audited candidate solutions, and reproduce steps are in **[BENCHMARK.md](BENCHMARK.md)**.
 
+## Demos — three languages, one result
+
+Each demo is a real, **Docker‑verified** cold→warm run on a held‑out task split. Cold = Claude's natural cross‑language guesses; warm = after the plugin learned the idiom. Every number comes from the real compiler in the sandbox (`--network none`).
+
+| language | cold → warm pass@1 | the caught cross‑language mistake | demo |
+| --- | --- | --- | --- |
+| **Gleam** (BEAM, v1.15) | 0.50 → **1.00** | `list.fold_left` / `list.reduce` → `list.fold` | [demos/gleam.md](demos/gleam.md) |
+| **Julia** (1.11) | 0.50 → **1.00** | `"a" + "b"` → `"a" * "b"`; `v[1]` → `v[2]` (1‑based) | [demos/julia.md](demos/julia.md) |
+| **Oberon** (OBNC 0.17, built from source) | 0.50 → **1.00** | `n / 2` → `n DIV 2`; `LENGTH(a)` → `LEN(a)` | [demos/oberon.md](demos/oberon.md) |
+
+Three languages from three different worlds — a young BEAM language, a scientific dynamic language, and a niche Wirth language with no official toolchain — and the same result: **the sandbox catches the cross‑language hallucination, and the lesson fixes it.**
+
 ## Install
 
 > *"Welcome to the real world."*
@@ -137,10 +150,10 @@ This builds on established ideas — retrieval‑augmented generation (RAG), sel
 
 ## Status & limitations
 
-- **Validated end‑to‑end on a Docker host.** The Gleam sandbox builds (`ghcr.io/gleam-lang/gleam:v1.15.0-erlang-alpine`), the held‑out suite self‑checks 4/4, and the cold→warm run produces the curve above. Verification runs offline (`--network none`).
-- Pure logic (knowledge store, learn engine, verifier control flow, benchmark harness) is covered by a unit‑test suite: `uv run --extra dev pytest` → **37 passing**. The codebase also passed a max‑effort multi‑agent self‑review (14 findings fixed).
+- **Validated end‑to‑end on a Docker host across three languages — Gleam, Julia, and Oberon.** Each sandbox builds, its held‑out suite self‑checks 4/4, and the cold→warm run produces a real learning curve (pass@1 0.50 → 1.00 for all three; see [demos/](demos/)). Verification runs offline (`--network none`).
+- Pure logic (knowledge store, learn engine, verifier control flow, benchmark harness) is covered by a unit‑test suite: `uv run --extra dev pytest` → **38 passing**. The codebase also passed a max‑effort multi‑agent self‑review (14 findings fixed).
 - **Honesty holds in the failure path:** with Docker stopped, `kungfu_verify` returns a structured "cannot verify" and the bench marks runs not measurable — it never fakes a pass or invents numbers.
-- *Limitations:* the benchmark is a mechanism demonstration (n = 4 held‑out tasks, one language) whose cold/warm candidate solutions are documented and human‑audited (see BENCHMARK.md), not produced by a blind cold model. Gleam verification covers the cached stdlib + gleeunit offline; projects needing other hex packages require `docker.network: "bridge"`. Bump the Gleam image tag as releases land.
+- *Limitations:* each benchmark is a mechanism demonstration (n = 4 held‑out tasks per language) whose cold/warm candidate solutions are documented and human‑audited (see BENCHMARK.md and demos/), not produced by a blind cold model. Sandboxes verify the cached stdlib surface offline; projects needing extra third‑party packages require `docker.network: "bridge"`. Bump sandbox image tags as releases land.
 
 ## Repository layout
 
@@ -157,6 +170,12 @@ assets/            banner + learning-curve visuals
 ## Keywords
 
 Claude Code plugin · MCP server · anti‑hallucination · LLM code generation · grounding · retrieval‑augmented generation · Docker sandbox verification · self‑improving agent · epistemic honesty · learn from mistakes · unknown programming languages · Gleam · FastMCP · Anthropic Claude.
+
+## Star history
+
+<a href="https://star-history.com/#emircbngl/claude-i-know-kungfu&Date">
+  <img src="https://api.star-history.com/svg?repos=emircbngl/claude-i-know-kungfu&type=Date" alt="Star history chart for emircbngl/claude-i-know-kungfu" width="640">
+</a>
 
 ## License
 

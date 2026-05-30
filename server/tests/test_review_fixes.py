@@ -54,3 +54,9 @@ def test_same_slug_still_dedupes(tmp_path):
     store.save_card(tmp_path, cards.new_card("g", "syntax", "case", "v2", source="u"))
     cs = store.read_cards(tmp_path, "g", "syntax")
     assert len(cs) == 1 and cs[0].body == "v2"  # identical slug overwrites (dedupe intact)
+
+
+def test_extract_undeclared_identifier():
+    from kungfu import verify
+    syms = verify.extract_unknown_symbols("Sol.obn:5: error: undeclared identifier: LENGTH")
+    assert "LENGTH" in syms

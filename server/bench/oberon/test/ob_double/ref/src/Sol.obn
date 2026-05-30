@@ -1,0 +1,8 @@
+MODULE Sol;
+
+  PROCEDURE Double*(x: INTEGER): INTEGER;
+  BEGIN
+    RETURN x * 2
+  END Double;
+
+END Sol.

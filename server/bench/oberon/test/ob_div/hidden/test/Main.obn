@@ -1,0 +1,8 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+BEGIN
+  ASSERT(Sol.Half(10) = 5);
+  ASSERT(Sol.Half(7) = 3)
+END Main.

@@ -31,6 +31,8 @@ SANDBOX_DIR = Path(__file__).resolve().parent.parent / "sandbox"
 _UNKNOWN_PATTERNS = [
     # Gleam: "The module `gleam/list` does not have a `fold_left` value."
     r"does not have (?:a |an )?[`\"']([A-Za-z_][\w./]*)[`\"']",
+    # OBNC / Oberon and similar: "undeclared identifier: LENGTH"
+    r"undeclared identifier[:\s]+[`\"']?([A-Za-z_][\w.]*)",
     # "`name` is not in scope/defined/imported"
     r"[`\"']([A-Za-z_][\w./]*)[`\"'] is not (?:in scope|defined|imported)",
     # "Unknown variable/type/... `name`" (backtick-delimited so the error's own

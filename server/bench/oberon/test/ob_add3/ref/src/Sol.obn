@@ -1,0 +1,8 @@
+MODULE Sol;
+
+  PROCEDURE Add3*(a, b, c: INTEGER): INTEGER;
+  BEGIN
+    RETURN a + b + c
+  END Add3;
+
+END Sol.

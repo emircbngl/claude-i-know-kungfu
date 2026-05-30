@@ -1,0 +1,10 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+  VAR a: ARRAY 3 OF INTEGER;
+
+BEGIN
+  a[0] := 3; a[1] := 1; a[2] := 2;
+  ASSERT(Sol.Max(a, 3) = 3)
+END Main.

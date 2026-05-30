@@ -1,0 +1,11 @@
+MODULE Sol;
+
+  PROCEDURE Sum*(a: ARRAY OF INTEGER; n: INTEGER): INTEGER;
+    VAR i, s: INTEGER;
+  BEGIN
+    s := 0; i := 0;
+    WHILE i < n DO s := s + a[i]; INC(i) END;
+    RETURN s
+  END Sum;
+
+END Sol.
