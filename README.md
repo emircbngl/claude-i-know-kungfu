@@ -71,19 +71,21 @@ The MCP server is the **librarian**, not the brain: it stores, retrieves, verifi
 
 > *"Welcome to the real world."*
 
-The honest part. I ran a **blind‑agent evaluation**: fresh agents solved held‑out tasks with no help (**cold**) vs. with a doc‑grounded reference card (**warm**); every solution was scored by the real compiler in the sandbox. I did not hand‑write or coach the solutions.
+The honest part. I ran a **blind‑agent evaluation**: fresh agents solved held‑out tasks **cold** (one‑shot, no help) vs. **with the plugin** (grounding and, where the cold attempt failed, one round of its `kungfu_verify` compile‑and‑fix loop). Every solution was scored by the real compiler in the sandbox; I did not hand‑write or coach them.
 
 | evaluation | cold (one‑shot, no help) | with the plugin's verify loop | delta |
 | --- | --- | --- | --- |
 | Gleam · Julia · Oberon — basic list/string tasks | 1.00 | 1.00 | **0** |
 | Gleam — a 2024 *removed* API (`result.then` → `result.try`), 5 samples | 1.00 | 1.00 | **0** |
-| **Oberon — a recursive‑descent expression parser** (precedence + parens), 6 samples | **0.17** (1/6) | **0.83** (5/6) | **+0.66** ✅ |
+| Gleam — recursive‑descent expression parser (precedence + parens), 6 samples | **1.00** (6/6) | — | **0** |
+| Julia — exact factorial (BigInt; `21!` overflows Int64), 6 samples | **1.00** (6/6) | — | **0** |
+| **Oberon — the *same* parser task** (precedence + parens), 6 samples | **0.17** (1/6) | **0.83** (5/6) | **+0.66** ✅ |
 
 **Two honest findings:**
 
-1. **On tasks the model already knows, the plugin adds no pass@1 — and this repo says so** rather than staging a win. A current model writes correct Gleam/Julia/Oberon for basic tasks, and even uses the *current* API that replaced a removed one. (An earlier README showed a `0.50 → 1.00` "learning curve"; it was *staged* with hand‑picked failures and was removed — faking a number is exactly what this project opposes.)
+1. **On tasks the model already knows, the plugin adds no pass@1 — and this repo says so** rather than staging a win. A current model writes correct Gleam/Julia/Oberon for basic tasks, uses the *current* API that replaced a removed one, and even nails the **hard** tasks one‑shot in two of three languages — a full expression parser in Gleam (6/6) and exact BigInt factorials in Julia (6/6). (An earlier README showed a `0.50 → 1.00` "learning curve"; it was *staged* with hand‑picked failures and was removed — faking a number is exactly what this project opposes.)
 
-2. **Push to a genuinely hard task and the gap appears — then the verify loop closes it.** A full expression parser in Oberon‑07 hits the language's sharpest edge: it needs mutual recursion, but Oberon‑07 has **no forward declarations** (and OBNC also forbids calling a *sibling* nested procedure). One‑shot, **4 of 6** fresh agents failed to compile — reaching for `FORWARD` or flat mutual recursion; one honestly *refused to guess*; only one compiled (**cold pass@1 = 1/6**). Feed each failure its **real compiler error once** — the plugin's `kungfu_verify` loop — and all four diagnose the constraint and restructure correctly (**with the loop, 5/6**). Every number is from the real OBNC compiler, independently re‑scored; the task is reproducible at `server/bench/oberon/test/ob_calc`.
+2. **The gap is a *language trap*, not difficulty — and the verify loop closes it.** The *same* hard task — a precedence‑and‑parens expression parser — is **6/6 cold in Gleam but 1/6 cold in Oberon.** Both need mutual recursion; Gleam allows it across top‑level functions, but **Oberon‑07 has no forward declarations** (and OBNC forbids calling a *sibling* nested procedure). One‑shot, 4 of 6 fresh agents failed to compile (reaching for `FORWARD` or flat mutual recursion); one honestly *refused to guess*; only one compiled. Feed each failure its **real compiler error once** — `kungfu_verify` — and all four diagnose the constraint and restructure correctly: **1/6 → 5/6**. Every number is from the real compiler, independently re‑scored; tasks are reproducible under `server/bench/*/hard` and `server/bench/oberon/test/ob_calc`.
 
 That second row is the whole thesis in one line: **the plugin earns its keep exactly where the model struggles — and it's execution feedback, not trust, that fixes it.**
 
