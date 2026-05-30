@@ -1,0 +1,14 @@
+MODULE Sol;
+
+  PROCEDURE CountEven*(a: ARRAY OF INTEGER; n: INTEGER): INTEGER;
+    VAR i, c: INTEGER;
+  BEGIN
+    c := 0; i := 0;
+    WHILE i < n DO
+      IF a[i] MOD 2 = 0 THEN INC(c) END;
+      INC(i)
+    END
+    RETURN c
+  END CountEven;
+
+END Sol.

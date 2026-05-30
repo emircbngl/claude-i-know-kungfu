@@ -1,0 +1,14 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+  VAR a: ARRAY 4 OF INTEGER;
+      b: ARRAY 1 OF INTEGER;
+
+BEGIN
+  a[0] := 1; a[1] := 2; a[2] := 3; a[3] := 4;
+  ASSERT(Sol.Total(a, 4) = 10);
+  ASSERT(Sol.Total(a, 0) = 0);
+  b[0] := 5;
+  ASSERT(Sol.Total(b, 1) = 5)
+END Main.

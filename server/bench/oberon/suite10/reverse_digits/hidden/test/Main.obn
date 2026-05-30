@@ -1,0 +1,10 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+BEGIN
+  ASSERT(Sol.ReverseDigits(1230) = 321);
+  ASSERT(Sol.ReverseDigits(7) = 7);
+  ASSERT(Sol.ReverseDigits(100) = 1);
+  ASSERT(Sol.ReverseDigits(0) = 0)
+END Main.

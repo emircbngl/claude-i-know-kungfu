@@ -1,101 +1,121 @@
 # Benchmark — an honest evaluation
 
 This project is about not faking things, so this file reports what the evaluation
-**actually** found — null results where the model needs no help, and a real,
-earned delta in the one place it does.
+**actually** found: a current model is broadly capable even in niche languages, the
+gap is a small *structural* one concentrated in a single language's idiosyncratic
+rules, and execution feedback — not trust — closes it.
 
 ## Methodology
 
-A **blind‑agent evaluation**, scored by the real compiler:
+A **controlled, blind‑agent evaluation**, scored by the real compiler.
 
-- For each held‑out task, fresh, independent coder agents wrote a solution
-  **cold** — only the prompt, no knowledge base, no lookup, no tools.
-- **With the verify loop** means `kungfu_verify`: the solution is compiled/tested
-  in the Docker sandbox (`--network none`) and, on failure, the agent is given the
-  **real compiler error** and revises (one round here).
-- Solutions were not written or hinted by the repo author. Everything — cold and
-  revised — was scored against hidden tests in the sandbox and **independently
-  re‑scored** for this table.
+- **10 identical tasks × 3 languages × 3 samples = 90 one‑shot solutions.** Every
+  task is the *same problem with the same examples* in Gleam, Julia, and
+  Oberon‑07 — only the function signature changes. This isolates the one variable
+  that matters: the language.
+- **Cold:** each solution was written by a fresh, independent agent from its **own
+  knowledge only** — no knowledge base, no lookup, no web, no tools.
+- **Verify‑fix:** for each cold failure, the **exact compiler diagnostic** was fed
+  back to a fresh agent that revised; re‑scored in Docker; repeated up to two
+  rounds. **No knowledge base — pure execution feedback.**
+- Every solution (cold and revised) was scored against **hidden tests** inside the
+  offline Docker sandbox (`--network none`; Gleam v1.15, Julia 1.11, OBNC 0.17.2).
+  Solutions were not written or hinted by the author. Full data — all 90 cold
+  solutions and every diagnostic — is committed at
+  [`server/bench/suite10_eval.json`](server/bench/suite10_eval.json).
 
-## Results
+The 10 tasks: `total`, `largest`, `count_even`, `gcd_of`, `fib`, `reverse_digits`,
+`is_prime`, `digit_sum`, `collatz`, and `eval_expr` — a precedence‑and‑parens
+integer expression evaluator (the hard one).
 
-| evaluation | cold (one‑shot) | with verify loop | delta |
+## Result — cold pass rate (passed / 3 samples)
+
+| task | Gleam | Julia | Oberon‑07 |
 | --- | --- | --- | --- |
-| Gleam · Julia · Oberon — basic list/string tasks (n=4 each) | 1.00 | 1.00 | 0 |
-| Gleam — a 2024 *removed* API (`result.then` → `result.try`), 5 samples | 1.00 | 1.00 | 0 |
-| **Gleam — recursive‑descent expression parser** (precedence + parens), 6 samples | **1.00** (6/6) | — | 0 |
-| **Julia — exact factorial** (BigInt; `21!` overflows Int64), 6 samples | **1.00** (6/6) | — | 0 |
-| **Oberon — recursive‑descent expression parser** (precedence + parens), 6 samples | **0.17** (1/6) | **0.83** (5/6) | **+0.66** |
+| total | 3/3 | 3/3 | 3/3 |
+| largest | 3/3 | 3/3 | 3/3 |
+| count_even | 3/3 | 3/3 | 3/3 |
+| gcd_of | 3/3 | 3/3 | 3/3 |
+| fib | 2/3 | 3/3 | 3/3 |
+| reverse_digits | 3/3 | 3/3 | 3/3 |
+| is_prime | 3/3 | 3/3 | 2/3 |
+| digit_sum | 3/3 | 3/3 | 3/3 |
+| collatz | 3/3 | 3/3 | 3/3 |
+| **eval_expr** | **3/3** | **3/3** | **0/3** |
+| **TOTAL** | **29/30** | **30/30** | **26/30** |
+
+**Cold overall: 85/90 (94%). After the verify‑fix loop: 90/90.**
 
 ## Finding 1 — where the model is already good, the plugin adds nothing
 
-A current, strong model writes correct Gleam, Julia, and Oberon for basic tasks,
-uses the *current* API that replaced a removed one (5/5 cold used `result.try`),
-and even nails the **hard** tasks one‑shot in two of three languages: a full
-expression parser in Gleam (6/6) and exact BigInt factorials in Julia (6/6 — every
-agent reached for `big(n)`; they all knew `21!` overflows). Where there is no gap,
-this repo reports none.
+85 of 90 one‑shot solutions compiled and passed hidden tests with **no help at
+all** — in three languages a current model barely saw in training. Nine of the ten
+tasks are essentially solved cold in every language. Where there is no gap, this
+repo reports none.
 
-> An earlier version showed a staged `0.50 → 1.00` "learning curve" (cold solutions
-> hand‑picked to fail). It was removed; staging a number is exactly what this
-> project exists to prevent.
+> An earlier version of this file showed a staged `0.50 → 1.00` "learning curve"
+> built from hand‑picked failures. It was deleted. Staging a number is exactly what
+> this project exists to prevent.
 
-## Finding 2 — the gap is a *language trap*, not task difficulty — and the verify loop closes it
+## Finding 2 — the gap is a *language trap*, and it's structural
 
-The most informative result: the **same** hard task — a precedence‑and‑parens
-expression parser — is **6/6 cold in Gleam but 1/6 cold in Oberon.**
+The five cold failures are not spread out — they concentrate. Four of five are in
+Oberon‑07, and **three are the same task: `eval_expr`, which is 3/3 in Gleam, 3/3
+in Julia, and 0/3 in Oberon.**
 
-It isn't about difficulty: both need mutual recursion
-(`expr → term → factor → expr`). Gleam lets top‑level functions call each other in
-any order, so it's routine. **Oberon‑07 has no forward declarations**, and OBNC
-additionally forbids calling a *sibling* nested procedure — a sharp, non‑obvious
-constraint. One‑shot, 6 fresh agents:
+It isn't difficulty — an expression parser needs the same mutual recursion
+(`expr → term → factor → expr`) in all three. It's that Oberon‑07 enforces rules a
+model pattern‑matching from C/Pascal/Rust doesn't anticipate. Every cold failure
+maps to a specific, nameable rule:
 
-| approach taken (Oberon) | result | real OBNC verdict |
-| --- | --- | --- |
-| `FORWARD;` declaration | ❌ | `syntax error … expecting END` (no FORWARD in Oberon‑07) |
-| repeat‑heading forward decl | ❌ | `undeclared identifier: Number` |
-| flat mutually‑recursive procs | ❌ | `undeclared identifier: Factor` |
-| nested proc using enclosing locals | ❌ | `undeclared identifier: pos` |
-| **procedure variable** | ✅ | compiles, all asserts pass |
-| (one agent) | ⊘ | **honestly refused to guess** without a compiler |
+| failure | the trap (real compiler diagnostic) | error type | iters to fix |
+| --- | --- | --- | --- |
+| gleam / fib | used `order.Lt` without `import gleam/order` | IMPORT | 1 |
+| oberon / is_prime | `IF p THEN RETURN 1 ELSE RETURN 0 END` — `RETURN` must be the **last** statement of a body | SYNTAX | 1 |
+| oberon / eval_expr | a nested procedure can't see the enclosing proc's local `pos` | SEMANTIC | 1 |
+| oberon / eval_expr | a nested procedure can't call its **sibling** nested procedure | SEMANTIC | 2 |
+| oberon / eval_expr | used Oberon‑2 `PROCEDURE^` forward decl — **removed in Oberon‑07** | NONEXISTENT | 2 |
 
-→ **cold pass@1 = 1/6.** Feed each compile failure its real OBNC error once (the
-verify loop). All four diagnose the constraint and restructure correctly — a
-nested chain, a module‑level procedure with a `VAR` parameter, a procedure
-variable. → **with the loop, 5/6 (+0.66)**, driven entirely by execution feedback.
+The fix the agents converge on for the Oberon parser is the genuine Oberon‑07
+idiom: **lift state to module level and use a procedure‑typed variable** to break
+the recursion cycle (since there are no forward declarations). Feed the real
+compiler error back and **every** failure recovers within two rounds — one in the
+first round, two more in the second: **85/90 → 90/90**, on execution feedback
+alone, with no knowledge base.
 
-## What it means
+> Corroborates an earlier focused run: the *same* parser task, 6 fresh samples
+> each — Gleam 6/6, Julia (BigInt factorial) 6/6, Oberon 1/6 cold → 5/6 with the
+> verify loop. Same phenomenon, same direction, larger N here.
 
-- The plugin does **not** make a capable model able to do what it already can —
-  it's strong even on hard tasks in niche languages.
-- It earns its keep on **idiosyncratic language semantics the model doesn't
-  anticipate one‑shot** (Oberon's missing forward declarations). There, the
-  compiler‑in‑the‑loop turns a 17% success rate into 83%. That is the regime the
-  plugin is for: *"probably right"* → *"verified right,"* and a real fix where the
-  model is genuinely wrong.
+## These five failures are exactly what the Learn loop captures
+
+Each failure is a textbook **misconception → correct‑model** lesson — e.g.
+*"reaching for an early/conditional `RETURN` in Oberon"* → *"`RETURN` is the final
+statement of a procedure body; compute into a `VAR` and return once."* Captured
+once (keyed by the flawed reasoning), surfaced proactively by `kungfu_lookup`
+before the next Oberon task, the trap stops reaching the compiler at all. The
+verify‑fix loop pays the cost once; the lesson makes it free thereafter. That is
+the entire point of the plugin, measured on real failures.
 
 ## Reproduce
 
-Each hard task is a reproducible bench task:
-
 ```text
-server/bench/gleam/hard/expr_parser      server/bench/julia/hard/bigint_factorial
-server/bench/oberon/test/ob_calc
+server/bench/{gleam,julia,oberon}/suite10/<task>/   # 30 task cells, identical across langs
+server/bench/suite10_eval.json                      # full data: matrix, 90 cold solutions, every diagnostic + fix
 ```
 
 ```text
-docker build -t kungfu-oberon:latest server/sandbox/oberon
-/kungfu-bench oberon selfcheck      # reference solutions pass
+docker build -t kungfu-oberon:latest server/sandbox/oberon   # (gleam / julia similarly)
+/kungfu-bench oberon selfcheck                               # reference solutions pass 10/10
 ```
 
-The blind‑agent protocol (fresh agents, cold vs. verify‑fix, scored via
-`kungfu_verify`) is driven by the skill; the scoring harness is
-`server/kungfu/bench.py`.
+Re‑scoring any stored solution = `bench.merge_files` the candidate into its task
+and call `verify.verify` (see `server/kungfu/bench.py`).
 
 ## Caveats
 
-Small samples (n = 4–6 per row), one model, one verify‑fix round. Directional,
-not a leaderboard. Cold solutions are real blind attempts; verify‑loop revisions
-are real agent fixes prompted only by the compiler error; all independently
-re‑scored in the sandbox.
+One model, three samples per cell, up to two verify‑fix rounds — directional, not a
+leaderboard. Nine of ten tasks are classic algorithms a strong model knows in any
+language, so the cold rate is high by design; the **discriminating** task is
+`eval_expr` and the discriminating language is Oberon‑07. Every number is from the
+real compiler on hidden tests, with all 90 cold solutions committed for inspection.

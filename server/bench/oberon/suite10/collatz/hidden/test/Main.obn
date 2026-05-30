@@ -1,0 +1,9 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+BEGIN
+  ASSERT(Sol.Collatz(1) = 0);
+  ASSERT(Sol.Collatz(6) = 8);
+  ASSERT(Sol.Collatz(27) = 111)
+END Main.

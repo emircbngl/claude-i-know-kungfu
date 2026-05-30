@@ -1,0 +1,16 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+  VAR a: ARRAY 3 OF INTEGER;
+      b: ARRAY 1 OF INTEGER;
+      c: ARRAY 3 OF INTEGER;
+
+BEGIN
+  a[0] := 3; a[1] := 1; a[2] := 2;
+  ASSERT(Sol.Largest(a, 3) = 3);
+  b[0] := 5;
+  ASSERT(Sol.Largest(b, 1) = 5);
+  c[0] := 4; c[1] := 4; c[2] := 4;
+  ASSERT(Sol.Largest(c, 3) = 4)
+END Main.

@@ -1,0 +1,14 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+  VAR a: ARRAY 5 OF INTEGER;
+      b: ARRAY 3 OF INTEGER;
+
+BEGIN
+  a[0] := 1; a[1] := 2; a[2] := 3; a[3] := 4; a[4] := 6;
+  ASSERT(Sol.CountEven(a, 5) = 3);
+  b[0] := 1; b[1] := 3; b[2] := 5;
+  ASSERT(Sol.CountEven(b, 3) = 0);
+  ASSERT(Sol.CountEven(b, 0) = 0)
+END Main.

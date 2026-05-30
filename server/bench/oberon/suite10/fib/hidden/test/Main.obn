@@ -1,0 +1,10 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+BEGIN
+  ASSERT(Sol.Fib(0) = 0);
+  ASSERT(Sol.Fib(1) = 1);
+  ASSERT(Sol.Fib(10) = 55);
+  ASSERT(Sol.Fib(20) = 6765)
+END Main.

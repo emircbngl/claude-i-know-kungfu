@@ -1,0 +1,11 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+BEGIN
+  ASSERT(Sol.EvalExpr("2+3*4") = 14);
+  ASSERT(Sol.EvalExpr("(2+3)*4") = 20);
+  ASSERT(Sol.EvalExpr("100/5/2") = 10);
+  ASSERT(Sol.EvalExpr("2+3-1") = 4);
+  ASSERT(Sol.EvalExpr("(1+2)*(3+4)") = 21)
+END Main.

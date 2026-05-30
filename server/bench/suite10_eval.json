@@ -1,0 +1,672 @@
+{
+  "experiment": "suite10 cross-language blind eval",
+  "date": "2026-05-30",
+  "protocol": {
+    "description": "10 identical algorithmic tasks (same prompt and examples; only the language signature differs) x 3 languages x 3 blind samples = 90 one-shot solutions. Each subagent wrote from its own knowledge only: no knowledge base, no lookup, no web. Every solution was scored against hidden tests inside the offline Docker sandbox (--network none).",
+    "cold": "one-shot, no help",
+    "verify_fix": "for each cold failure, the exact compiler diagnostic was fed back to a fresh subagent that revised the code; re-scored in Docker; repeated up to a few iterations. No knowledge base used - pure execution feedback.",
+    "samples_per_cell": 3,
+    "languages": [
+      "gleam",
+      "julia",
+      "oberon"
+    ],
+    "tasks": [
+      "total",
+      "largest",
+      "count_even",
+      "gcd_of",
+      "fib",
+      "reverse_digits",
+      "is_prime",
+      "digit_sum",
+      "collatz",
+      "eval_expr"
+    ],
+    "sandbox": "Docker, network-disabled; gleam v1.15 / julia 1.11 / OBNC 0.17.2"
+  },
+  "cold_matrix": {
+    "gleam": {
+      "total": 3,
+      "largest": 3,
+      "count_even": 3,
+      "gcd_of": 3,
+      "fib": 2,
+      "reverse_digits": 3,
+      "is_prime": 3,
+      "digit_sum": 3,
+      "collatz": 3,
+      "eval_expr": 3
+    },
+    "julia": {
+      "total": 3,
+      "largest": 3,
+      "count_even": 3,
+      "gcd_of": 3,
+      "fib": 3,
+      "reverse_digits": 3,
+      "is_prime": 3,
+      "digit_sum": 3,
+      "collatz": 3,
+      "eval_expr": 3
+    },
+    "oberon": {
+      "total": 3,
+      "largest": 3,
+      "count_even": 3,
+      "gcd_of": 3,
+      "fib": 3,
+      "reverse_digits": 3,
+      "is_prime": 2,
+      "digit_sum": 3,
+      "collatz": 3,
+      "eval_expr": 0
+    }
+  },
+  "cold_totals": {
+    "gleam": "29/30",
+    "julia": "30/30",
+    "oberon": "26/30"
+  },
+  "cold_overall": "85/90",
+  "after_verify_fix_overall": "90/90",
+  "failures": [
+    {
+      "lang": "gleam",
+      "task": "fib",
+      "sample": 0,
+      "error_type": "IMPORT",
+      "iterations_to_recover": 1,
+      "trap": "Used the gleam/order constructor `order.Lt` without importing gleam/order. `int.compare` returns an Order value, but the `order` module was never imported.",
+      "cold_diagnostic": "Compiling gleam_stdlib\n  Compiling gleeunit\n  Compiling app\nerror: Unknown module\n   ┌─ /home/kungfu/work/src/sol.gleam:12:5\n   │\n12 │     order.Lt -> 0\n   │     ^^^^^\n\nNo module has been found with the name `order`.\nHint: Did you mean to import `gleam/order`?",
+      "cold_code": "import gleam/int\n\n/// Compute the nth Fibonacci number.\n///\n/// fib(0) == 0, fib(1) == 1, and fib(n) == fib(n - 1) + fib(n - 2).\n///\n/// Examples:\n///   fib(10) == 55\n///   fib(20) == 6765\npub fn fib(n: Int) -> Int {\n  case int.compare(n, 0) {\n    order.Lt -> 0\n    _ -> fib_loop(n, 0, 1)\n  }\n}\n\nfn fib_loop(remaining: Int, a: Int, b: Int) -> Int {\n  case remaining {\n    0 -> a\n    _ -> fib_loop(remaining - 1, b, a + b)\n  }\n}\n",
+      "verify_fixed_code": "pub fn fib(n: Int) -> Int {\n  fib_loop(n, 0, 1)\n}\n\nfn fib_loop(remaining: Int, a: Int, b: Int) -> Int {\n  case remaining {\n    0 -> a\n    _ -> fib_loop(remaining - 1, b, a + b)\n  }\n}\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "eval_expr",
+      "sample": 0,
+      "error_type": "SEMANTIC",
+      "iterations_to_recover": 2,
+      "trap": "A nested procedure tried to call its sibling nested procedure (Term -> Factor); OBNC rejects it as an undeclared identifier. Mutual recursion needs module-level procedures plus a procedure-typed variable for the forward edge.",
+      "cold_diagnostic": "obnc-compile: Sol.obn:12: error: undeclared identifier: pos\nobnc: build process failed",
+      "cold_code": "MODULE Sol;\n\n  PROCEDURE EvalExpr*(s: ARRAY OF CHAR): INTEGER;\n    VAR pos: INTEGER;\n\n    PROCEDURE Expression(): INTEGER;\n      VAR result, right: INTEGER; op: CHAR;\n\n      PROCEDURE Factor(): INTEGER;\n        VAR value: INTEGER;\n      BEGIN\n        IF s[pos] = \"(\" THEN\n          INC(pos);                  (* consume \"(\" *)\n          value := Expression();\n          INC(pos)                   (* consume \")\" *)\n        ELSE\n          value := 0;\n          WHILE (s[pos] >= \"0\") & (s[pos] <= \"9\") DO\n            value := value * 10 + (ORD(s[pos]) - ORD(\"0\"));\n            INC(pos)\n          END\n        END;\n        RETURN value\n      END Factor;\n\n      PROCEDURE Term(): INTEGER;\n        VAR result, right: INTEGER; op: CHAR;\n      BEGIN\n        result := Factor();\n        WHILE (s[pos] = \"*\") OR (s[pos] = \"/\") DO\n          op := s[pos];\n          INC(pos);\n          right := Factor();\n          IF op = \"*\" THEN\n            result := result * right\n          ELSE\n            result := result DIV right\n          END\n        END;\n        RETURN result\n      END Term;\n\n    BEGIN\n      result := Term();\n      WHILE (s[pos] = \"+\") OR (s[pos] = \"-\") DO\n        op := s[pos];\n        INC(pos);\n        right := Term();\n        IF op = \"+\" THEN\n          result := result + right\n        ELSE\n          result := result - right\n        END\n      END;\n      RETURN result\n    END Expression;\n\n  BEGIN\n    pos := 0;\n    RETURN Expression()\n  END EvalExpr;\n\nEND Sol.\n",
+      "verify_fixed_code": "MODULE Sol;\n\n  VAR ExpressionFwd: PROCEDURE(s: ARRAY OF CHAR; VAR pos: INTEGER): INTEGER;\n\n  PROCEDURE Factor(s: ARRAY OF CHAR; VAR pos: INTEGER): INTEGER;\n    VAR value: INTEGER;\n  BEGIN\n    IF s[pos] = \"(\" THEN\n      INC(pos);\n      value := ExpressionFwd(s, pos);\n      INC(pos)\n    ELSE\n      value := 0;\n      WHILE (s[pos] >= \"0\") & (s[pos] <= \"9\") DO\n        value := value * 10 + (ORD(s[pos]) - ORD(\"0\"));\n        INC(pos)\n      END\n    END;\n    RETURN value\n  END Factor;\n\n  PROCEDURE Term(s: ARRAY OF CHAR; VAR pos: INTEGER): INTEGER;\n    VAR result, right: INTEGER; op: CHAR;\n  BEGIN\n    result := Factor(s, pos);\n    WHILE (s[pos] = \"*\") OR (s[pos] = \"/\") DO\n      op := s[pos];\n      INC(pos);\n      right := Factor(s, pos);\n      IF op = \"*\" THEN\n        result := result * right\n      ELSE\n        result := result DIV right\n      END\n    END;\n    RETURN result\n  END Term;\n\n  PROCEDURE Expression(s: ARRAY OF CHAR; VAR pos: INTEGER): INTEGER;\n    VAR result, right: INTEGER; op: CHAR;\n  BEGIN\n    result := Term(s, pos);\n    WHILE (s[pos] = \"+\") OR (s[pos] = \"-\") DO\n      op := s[pos];\n      INC(pos);\n      right := Term(s, pos);\n      IF op = \"+\" THEN\n        result := result + right\n      ELSE\n        result := result - right\n      END\n    END;\n    RETURN result\n  END Expression;\n\n  PROCEDURE EvalExpr*(s: ARRAY OF CHAR): INTEGER;\n    VAR pos: INTEGER;\n  BEGIN\n    pos := 0;\n    RETURN Expression(s, pos)\n  END EvalExpr;\n\nBEGIN\n  ExpressionFwd := Expression\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "eval_expr",
+      "sample": 1,
+      "error_type": "NONEXISTENT",
+      "iterations_to_recover": 2,
+      "trap": "Used an Oberon-2 `PROCEDURE^` forward declaration, which Oberon-07 removed. A procedure that must call one defined later needs a procedure-typed variable instead.",
+      "cold_diagnostic": "obnc-compile: Sol.obn:18: syntax error, unexpected RETURN, expecting END\nobnc: build process failed",
+      "cold_code": "MODULE Sol;\n\n(* Integer arithmetic expression evaluator.\n   Grammar (recursive descent):\n     expr   = term { (\"+\" | \"-\") term } .\n     term   = factor { (\"*\" | \"/\") factor } .\n     factor = number | \"(\" expr \")\" .\n   Precedence: * / bind tighter than + - ; all operators left-associative.\n   Input: non-negative integer literals, operators + - * /, parentheses, no spaces. *)\n\n  VAR\n    str: ARRAY 256 OF CHAR;  (* expression being parsed *)\n    pos: INTEGER;            (* current scan position into str *)\n\n  PROCEDURE Cur(): CHAR;\n  (* Returns the current character, or 0X at end of input. *)\n  BEGIN\n    IF str[pos] = 0X THEN RETURN 0X ELSE RETURN str[pos] END\n  END Cur;\n\n  PROCEDURE^ ParseExpr(): INTEGER;\n\n  PROCEDURE ParseFactor(): INTEGER;\n    VAR n: INTEGER; c: CHAR;\n  BEGIN\n    c := Cur();\n    IF c = \"(\" THEN\n      INC(pos);            (* consume \"(\" *)\n      n := ParseExpr();\n      IF Cur() = \")\" THEN INC(pos) END  (* consume \")\" *)\n    ELSE\n      (* read a non-negative integer literal *)\n      n := 0;\n      WHILE (Cur() >= \"0\") & (Cur() <= \"9\") DO\n        n := n * 10 + (ORD(Cur()) - ORD(\"0\"));\n        INC(pos)\n      END\n    END;\n    RETURN n\n  END ParseFactor;\n\n  PROCEDURE ParseTerm(): INTEGER;\n    VAR result, rhs: INTEGER; op: CHAR;\n  BEGIN\n    result := ParseFactor();\n    WHILE (Cur() = \"*\") OR (Cur() = \"/\") DO\n      op := Cur();\n      INC(pos);            (* consume operator *)\n      rhs := ParseFactor();\n      IF op = \"*\" THEN\n        result := result * rhs\n      ELSE\n        result := result DIV rhs\n      END\n    END;\n    RETURN result\n  END ParseTerm;\n\n  PROCEDURE ParseExpr(): INTEGER;\n    VAR result, rhs: INTEGER; op: CHAR;\n  BEGIN\n    result := ParseTerm();\n    WHILE (Cur() = \"+\") OR (Cur() = \"-\") DO\n      op := Cur();\n      INC(pos);            (* consume operator *)\n      rhs := ParseTerm();\n      IF op = \"+\" THEN\n        result := result + rhs\n      ELSE\n        result := result - rhs\n      END\n    END;\n    RETURN result\n  END ParseExpr;\n\n  PROCEDURE EvalExpr*(s: ARRAY OF CHAR): INTEGER;\n    VAR i: INTEGER;\n  BEGIN\n    (* copy input into the module-level buffer, ensuring 0X termination *)\n    i := 0;\n    WHILE (i < LEN(s)) & (i < LEN(str) - 1) & (s[i] # 0X) DO\n      str[i] := s[i];\n      INC(i)\n    END;\n    str[i] := 0X;\n    pos := 0;\n    RETURN ParseExpr()\n  END EvalExpr;\n\nEND Sol.",
+      "verify_fixed_code": "MODULE Sol;\n\n  VAR\n    str: ARRAY 256 OF CHAR;\n    pos: INTEGER;\n\n  PROCEDURE Cur(): CHAR;\n    VAR c: CHAR;\n  BEGIN\n    c := str[pos];\n    RETURN c\n  END Cur;\n\n  (* Oberon-07 has no forward declarations, so the Factor/Term/Expr\n     recursion cycle is folded into one precedence-climbing procedure.\n     minLevel selects the operator tier: 1 = \"+\"/\"-\", 2 = \"*\"/\"/\".\n     Factor is nested (declared before the body, hence visible), and the\n     only outward call it makes is back to ParseAt, which is in scope\n     within its own nested procedures. *)\n  PROCEDURE ParseAt(minLevel: INTEGER): INTEGER;\n    VAR result, rhs, level: INTEGER; c: CHAR;\n\n    PROCEDURE Factor(): INTEGER;\n      VAR n: INTEGER;\n    BEGIN\n      n := 0;\n      IF Cur() = \"(\" THEN\n        INC(pos);\n        n := ParseAt(1);\n        IF Cur() = \")\" THEN INC(pos) END\n      ELSE\n        WHILE (Cur() >= \"0\") & (Cur() <= \"9\") DO\n          n := n * 10 + (ORD(Cur()) - ORD(\"0\"));\n          INC(pos)\n        END\n      END;\n      RETURN n\n    END Factor;\n\n    PROCEDURE LevelOf(ch: CHAR): INTEGER;\n      VAR lv: INTEGER;\n    BEGIN\n      IF (ch = \"+\") OR (ch = \"-\") THEN lv := 1\n      ELSIF (ch = \"*\") OR (ch = \"/\") THEN lv := 2\n      ELSE lv := 0\n      END;\n      RETURN lv\n    END LevelOf;\n\n  BEGIN\n    IF minLevel > 2 THEN\n      result := Factor()\n    ELSE\n      result := ParseAt(minLevel + 1);\n      c := Cur();\n      level := LevelOf(c);\n      WHILE level = minLevel DO\n        INC(pos);\n        rhs := ParseAt(minLevel + 1);\n        IF c = \"+\" THEN result := result + rhs\n        ELSIF c = \"-\" THEN result := result - rhs\n        ELSIF c = \"*\" THEN result := result * rhs\n        ELSE result := result DIV rhs\n        END;\n        c := Cur();\n        level := LevelOf(c)\n      END\n    END;\n    RETURN result\n  END ParseAt;\n\n  PROCEDURE EvalExpr*(s: ARRAY OF CHAR): INTEGER;\n    VAR i: INTEGER;\n  BEGIN\n    i := 0;\n    WHILE (i < LEN(s)) & (i < LEN(str) - 1) & (s[i] # 0X) DO\n      str[i] := s[i];\n      INC(i)\n    END;\n    str[i] := 0X;\n    pos := 0;\n    RETURN ParseAt(1)\n  END EvalExpr;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "eval_expr",
+      "sample": 2,
+      "error_type": "SEMANTIC",
+      "iterations_to_recover": 1,
+      "trap": "A doubly-nested procedure could not reference the enclosing procedure's local `pos` (OBNC: undeclared identifier). The fix lifts parser state to module level and uses a procedure-typed variable.",
+      "cold_diagnostic": "obnc-compile: Sol.obn:15: error: undeclared identifier: pos\nobnc: build process failed",
+      "cold_code": "MODULE Sol;\n\n  PROCEDURE EvalExpr*(s: ARRAY OF CHAR): INTEGER;\n    VAR pos: INTEGER;\n\n    PROCEDURE Expression(): INTEGER;\n      VAR value, term: INTEGER; op: CHAR;\n\n      PROCEDURE Term(): INTEGER;\n        VAR value, fact: INTEGER; op: CHAR;\n\n        PROCEDURE Factor(): INTEGER;\n          VAR value: INTEGER;\n        BEGIN\n          IF s[pos] = \"(\" THEN\n            INC(pos);\n            value := Expression();\n            IF s[pos] = \")\" THEN INC(pos) END\n          ELSE\n            value := 0;\n            WHILE (s[pos] >= \"0\") & (s[pos] <= \"9\") DO\n              value := value * 10 + (ORD(s[pos]) - ORD(\"0\"));\n              INC(pos)\n            END\n          END;\n          RETURN value\n        END Factor;\n\n      BEGIN\n        value := Factor();\n        WHILE (s[pos] = \"*\") OR (s[pos] = \"/\") DO\n          op := s[pos]; INC(pos);\n          fact := Factor();\n          IF op = \"*\" THEN value := value * fact\n          ELSE value := value DIV fact END\n        END;\n        RETURN value\n      END Term;\n\n    BEGIN\n      value := Term();\n      WHILE (s[pos] = \"+\") OR (s[pos] = \"-\") DO\n        op := s[pos]; INC(pos);\n        term := Term();\n        IF op = \"+\" THEN value := value + term\n        ELSE value := value - term END\n      END;\n      RETURN value\n    END Expression;\n\n  BEGIN\n    pos := 0;\n    RETURN Expression()\n  END EvalExpr;\n\nEND Sol.\n",
+      "verify_fixed_code": "MODULE Sol;\n\n  TYPE\n    EvalProc = PROCEDURE (): INTEGER;\n\n  VAR\n    str: ARRAY 1024 OF CHAR;\n    pos: INTEGER;\n    expr: EvalProc;\n\n  PROCEDURE Factor(): INTEGER;\n    VAR value: INTEGER;\n  BEGIN\n    IF str[pos] = \"(\" THEN\n      INC(pos);\n      value := expr();\n      IF str[pos] = \")\" THEN INC(pos) END\n    ELSE\n      value := 0;\n      WHILE (str[pos] >= \"0\") & (str[pos] <= \"9\") DO\n        value := value * 10 + (ORD(str[pos]) - ORD(\"0\"));\n        INC(pos)\n      END\n    END;\n    RETURN value\n  END Factor;\n\n  PROCEDURE Term(): INTEGER;\n    VAR value, fact: INTEGER; op: CHAR;\n  BEGIN\n    value := Factor();\n    WHILE (str[pos] = \"*\") OR (str[pos] = \"/\") DO\n      op := str[pos]; INC(pos);\n      fact := Factor();\n      IF op = \"*\" THEN value := value * fact\n      ELSE value := value DIV fact END\n    END;\n    RETURN value\n  END Term;\n\n  PROCEDURE Expression(): INTEGER;\n    VAR value, term: INTEGER; op: CHAR;\n  BEGIN\n    value := Term();\n    WHILE (str[pos] = \"+\") OR (str[pos] = \"-\") DO\n      op := str[pos]; INC(pos);\n      term := Term();\n      IF op = \"+\" THEN value := value + term\n      ELSE value := value - term END\n    END;\n    RETURN value\n  END Expression;\n\n  PROCEDURE EvalExpr*(s: ARRAY OF CHAR): INTEGER;\n    VAR i: INTEGER;\n  BEGIN\n    i := 0;\n    WHILE s[i] # 0X DO str[i] := s[i]; INC(i) END;\n    str[i] := 0X;\n    pos := 0;\n    expr := Expression;\n    RETURN expr()\n  END EvalExpr;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "is_prime",
+      "sample": 1,
+      "error_type": "SYNTAX",
+      "iterations_to_recover": 1,
+      "trap": "RETURN must be the final statement of a procedure body. Oberon-07 has no early or conditional return, so `IF p THEN RETURN 1 ELSE RETURN 0 END` is a syntax error.",
+      "cold_diagnostic": "obnc-compile: Sol.obn:22: syntax error, unexpected RETURN, expecting END\nobnc: build process failed",
+      "cold_code": "MODULE Sol;\n\nPROCEDURE IsPrime*(n: INTEGER): INTEGER;\n  VAR i: INTEGER; prime: BOOLEAN;\nBEGIN\n  IF n < 2 THEN\n    prime := FALSE\n  ELSIF n = 2 THEN\n    prime := TRUE\n  ELSIF n MOD 2 = 0 THEN\n    prime := FALSE\n  ELSE\n    prime := TRUE;\n    i := 3;\n    WHILE (i * i <= n) & prime DO\n      IF n MOD i = 0 THEN\n        prime := FALSE\n      END;\n      i := i + 2\n    END\n  END;\n  IF prime THEN RETURN 1 ELSE RETURN 0 END\nEND IsPrime;\n\nEND Sol.\n",
+      "verify_fixed_code": "MODULE Sol;\n\nPROCEDURE IsPrime*(n: INTEGER): INTEGER;\n  VAR i, result: INTEGER; prime: BOOLEAN;\nBEGIN\n  IF n < 2 THEN\n    prime := FALSE\n  ELSIF n = 2 THEN\n    prime := TRUE\n  ELSIF n MOD 2 = 0 THEN\n    prime := FALSE\n  ELSE\n    prime := TRUE;\n    i := 3;\n    WHILE (i * i <= n) & prime DO\n      IF n MOD i = 0 THEN\n        prime := FALSE\n      END;\n      i := i + 2\n    END\n  END;\n  IF prime THEN result := 1 ELSE result := 0 END;\n  RETURN result\nEND IsPrime;\n\nEND Sol.\n"
+    }
+  ],
+  "cold_solutions": [
+    {
+      "lang": "gleam",
+      "task": "total",
+      "sample": 0,
+      "code": "import gleam/list\n\npub fn total(xs: List(Int)) -> Int {\n  list.fold(xs, 0, fn(acc, x) { acc + x })\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "total",
+      "sample": 1,
+      "code": "import gleam/list\n\npub fn total(xs: List(Int)) -> Int {\n  list.fold(xs, 0, fn(acc, x) { acc + x })\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "total",
+      "sample": 2,
+      "code": "import gleam/list\n\npub fn total(xs: List(Int)) -> Int {\n  list.fold(xs, 0, fn(acc, x) { acc + x })\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "largest",
+      "sample": 0,
+      "code": "import gleam/list\n\npub fn largest(xs: List(Int)) -> Int {\n  case xs {\n    [] -> panic as \"largest called on empty list\"\n    [first, ..rest] -> list.fold(rest, first, int_max)\n  }\n}\n\nfn int_max(a: Int, b: Int) -> Int {\n  case a >= b {\n    True -> a\n    False -> b\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "largest",
+      "sample": 1,
+      "code": "import gleam/list\n\n/// Return the largest element of a non-empty list.\n///\n/// The input is assumed to be non-empty. The first element is used as the\n/// initial accumulator and the rest of the list is folded over, keeping the\n/// greater of the accumulator and each element.\n///\n/// ## Examples\n///\n/// ```gleam\n/// largest([3, 1, 2])\n/// // -> 3\n/// ```\n///\n/// ```gleam\n/// largest([5])\n/// // -> 5\n/// ```\n///\npub fn largest(xs: List(Int)) -> Int {\n  case xs {\n    [] -> panic as \"largest called on empty list\"\n    [first, ..rest] ->\n      list.fold(rest, first, fn(acc, x) {\n        case x > acc {\n          True -> x\n          False -> acc\n        }\n      })\n  }\n}"
+    },
+    {
+      "lang": "gleam",
+      "task": "largest",
+      "sample": 2,
+      "code": "import gleam/list\n\npub fn largest(xs: List(Int)) -> Int {\n  case xs {\n    [] -> panic as \"largest: empty list\"\n    [first, ..rest] ->\n      list.fold(rest, first, fn(acc, x) {\n        case x > acc {\n          True -> x\n          False -> acc\n        }\n      })\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "count_even",
+      "sample": 0,
+      "code": "import gleam/list\n\npub fn count_even(xs: List(Int)) -> Int {\n  list.fold(xs, 0, fn(acc, x) {\n    case x % 2 == 0 {\n      True -> acc + 1\n      False -> acc\n    }\n  })\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "count_even",
+      "sample": 1,
+      "code": "import gleam/list\n\npub fn count_even(xs: List(Int)) -> Int {\n  list.fold(xs, 0, fn(acc, x) {\n    case x % 2 == 0 {\n      True -> acc + 1\n      False -> acc\n    }\n  })\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "count_even",
+      "sample": 2,
+      "code": "import gleam/list\n\npub fn count_even(xs: List(Int)) -> Int {\n  list.fold(xs, 0, fn(acc, x) {\n    case x % 2 == 0 {\n      True -> acc + 1\n      False -> acc\n    }\n  })\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "gcd_of",
+      "sample": 0,
+      "code": "import gleam/int\n\n/// Returns the greatest common divisor of `a` and `b`.\n///\n/// Both `a` and `b` are assumed to be non-negative, and `gcd(x, 0) == x`.\n///\n/// Uses the Euclidean algorithm.\npub fn gcd_of(a: Int, b: Int) -> Int {\n  case b {\n    0 -> a\n    _ -> gcd_of(b, int.modulo(a, b) |> result_unwrap(0))\n  }\n}\n\nfn result_unwrap(result: Result(Int, Nil), default: Int) -> Int {\n  case result {\n    Ok(value) -> value\n    Error(_) -> default\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "gcd_of",
+      "sample": 1,
+      "code": "import gleam/int\n\n/// Returns the greatest common divisor of `a` and `b`.\n///\n/// Both `a` and `b` are expected to be non-negative. By convention,\n/// `gcd(x, 0) == x` and `gcd(0, x) == x`.\n///\n/// ## Examples\n///\n/// ```gleam\n/// gcd_of(12, 18)\n/// // -> 6\n/// gcd_of(7, 0)\n/// // -> 7\n/// gcd_of(0, 5)\n/// // -> 5\n/// ```\n///\npub fn gcd_of(a: Int, b: Int) -> Int {\n  case b {\n    0 -> a\n    _ -> gcd_of(b, a % b)\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "gcd_of",
+      "sample": 2,
+      "code": "import gleam/int\n\npub fn gcd_of(a: Int, b: Int) -> Int {\n  case b {\n    0 -> int.absolute_value(a)\n    _ -> gcd_of(b, a % b)\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "fib",
+      "sample": 0,
+      "code": "import gleam/int\n\n/// Compute the nth Fibonacci number.\n///\n/// fib(0) == 0, fib(1) == 1, and fib(n) == fib(n - 1) + fib(n - 2).\n///\n/// Examples:\n///   fib(10) == 55\n///   fib(20) == 6765\npub fn fib(n: Int) -> Int {\n  case int.compare(n, 0) {\n    order.Lt -> 0\n    _ -> fib_loop(n, 0, 1)\n  }\n}\n\nfn fib_loop(remaining: Int, a: Int, b: Int) -> Int {\n  case remaining {\n    0 -> a\n    _ -> fib_loop(remaining - 1, b, a + b)\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "fib",
+      "sample": 1,
+      "code": "pub fn fib(n: Int) -> Int {\n  fib_loop(n, 0, 1)\n}\n\nfn fib_loop(n: Int, a: Int, b: Int) -> Int {\n  case n {\n    _ if n <= 0 -> a\n    _ -> fib_loop(n - 1, b, a + b)\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "fib",
+      "sample": 2,
+      "code": "pub fn fib(n: Int) -> Int {\n  fib_loop(n, 0, 1)\n}\n\nfn fib_loop(n: Int, a: Int, b: Int) -> Int {\n  case n {\n    0 -> a\n    _ -> fib_loop(n - 1, b, a + b)\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "reverse_digits",
+      "sample": 0,
+      "code": "import gleam/int\n\npub fn reverse_digits(n: Int) -> Int {\n  do_reverse(n, 0)\n}\n\nfn do_reverse(n: Int, acc: Int) -> Int {\n  case n {\n    0 -> acc\n    _ -> do_reverse(n / 10, acc * 10 + n % 10)\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "reverse_digits",
+      "sample": 1,
+      "code": "import gleam/int\n\npub fn reverse_digits(n: Int) -> Int {\n  do_reverse(n, 0)\n}\n\nfn do_reverse(n: Int, acc: Int) -> Int {\n  case n {\n    0 -> acc\n    _ -> do_reverse(n / 10, acc * 10 + n % 10)\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "reverse_digits",
+      "sample": 2,
+      "code": "import gleam/int\nimport gleam/string\n\n/// Returns the integer formed by reversing the decimal digits of `n`.\n///\n/// Precondition: `n >= 0`.\n/// Leading zeros produced by the reversal are dropped, because parsing the\n/// reversed string back into an `Int` ignores them (e.g. \"0021\" -> 21).\n///\n/// Examples:\n///   reverse_digits(1230) == 321\n///   reverse_digits(100)  == 1\n///   reverse_digits(7)    == 7\npub fn reverse_digits(n: Int) -> Int {\n  let reversed =\n    n\n    |> int.to_string\n    |> string.reverse\n    |> int.parse\n\n  case reversed {\n    Ok(value) -> value\n    // Unreachable for n >= 0: a non-empty string of digits always parses.\n    Error(_) -> 0\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "is_prime",
+      "sample": 0,
+      "code": "import gleam/int\n\npub fn is_prime(n: Int) -> Int {\n  case n < 2 {\n    True -> 0\n    False ->\n      case n {\n        2 -> 1\n        _ ->\n          case int.is_even(n) {\n            True -> 0\n            False -> check(n, 3)\n          }\n      }\n  }\n}\n\nfn check(n: Int, divisor: Int) -> Int {\n  case divisor * divisor > n {\n    True -> 1\n    False ->\n      case n % divisor == 0 {\n        True -> 0\n        False -> check(n, divisor + 2)\n      }\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "is_prime",
+      "sample": 1,
+      "code": "import gleam/int\n\npub fn is_prime(n: Int) -> Int {\n  case n < 2 {\n    True -> 0\n    False -> check_prime(n, 2)\n  }\n}\n\nfn check_prime(n: Int, divisor: Int) -> Int {\n  case divisor * divisor > n {\n    True -> 1\n    False ->\n      case n % divisor == 0 {\n        True -> 0\n        False -> check_prime(n, divisor + 1)\n      }\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "is_prime",
+      "sample": 2,
+      "code": "import gleam/int\n\npub fn is_prime(n: Int) -> Int {\n  case n {\n    _ if n < 2 -> 0\n    2 -> 1\n    _ if n % 2 == 0 -> 0\n    _ -> check(n, 3)\n  }\n}\n\nfn check(n: Int, d: Int) -> Int {\n  case d * d > n {\n    True -> 1\n    False ->\n      case n % d == 0 {\n        True -> 0\n        False -> check(n, d + 2)\n      }\n  }\n}\n\npub fn main() {\n  int.to_string(is_prime(7))\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "digit_sum",
+      "sample": 0,
+      "code": "import gleam/int\n\npub fn digit_sum(n: Int) -> Int {\n  case n < 10 {\n    True -> n\n    False -> n % 10 + digit_sum(n / 10)\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "digit_sum",
+      "sample": 1,
+      "code": "pub fn digit_sum(n: Int) -> Int {\n  case n {\n    _ if n <= 0 -> 0\n    _ -> n % 10 + digit_sum(n / 10)\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "digit_sum",
+      "sample": 2,
+      "code": "import gleam/int\n\npub fn digit_sum(n: Int) -> Int {\n  case n < 10 {\n    True -> n\n    False -> n % 10 + digit_sum(n / 10)\n  }\n}\n\npub fn main() {\n  int.to_string(digit_sum(1234))\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "collatz",
+      "sample": 0,
+      "code": "import gleam/int\n\n/// Returns the number of Collatz steps required to reach 1.\n///\n/// Rules (for n >= 1):\n///   - collatz(1) == 0\n///   - if n is even: n -> n / 2\n///   - if n is odd:  n -> 3 * n + 1\n///\n/// Each application of a rule counts as one step.\npub fn collatz(n: Int) -> Int {\n  collatz_loop(n, 0)\n}\n\nfn collatz_loop(n: Int, steps: Int) -> Int {\n  case n {\n    1 -> steps\n    _ ->\n      case int.is_even(n) {\n        True -> collatz_loop(n / 2, steps + 1)\n        False -> collatz_loop(3 * n + 1, steps + 1)\n      }\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "collatz",
+      "sample": 1,
+      "code": "import gleam/int\n\npub fn collatz(n: Int) -> Int {\n  do_collatz(n, 0)\n}\n\nfn do_collatz(n: Int, steps: Int) -> Int {\n  case n {\n    1 -> steps\n    _ ->\n      case int.is_even(n) {\n        True -> do_collatz(n / 2, steps + 1)\n        False -> do_collatz(3 * n + 1, steps + 1)\n      }\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "collatz",
+      "sample": 2,
+      "code": "import gleam/int\n\n/// Returns the number of Collatz steps required to reach 1.\n///\n/// The Collatz sequence is defined for n >= 1:\n///   - if n is even, the next term is n / 2\n///   - if n is odd,  the next term is 3 * n + 1\n///\n/// `collatz(1)` is 0 (already at 1). For each subsequent transformation,\n/// one step is counted. Examples: collatz(6) == 8, collatz(27) == 111.\npub fn collatz(n: Int) -> Int {\n  collatz_loop(n, 0)\n}\n\nfn collatz_loop(n: Int, steps: Int) -> Int {\n  case n {\n    1 -> steps\n    _ ->\n      case int.is_even(n) {\n        True -> collatz_loop(n / 2, steps + 1)\n        False -> collatz_loop(3 * n + 1, steps + 1)\n      }\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "eval_expr",
+      "sample": 0,
+      "code": "import gleam/int\nimport gleam/string\n\n/// Evaluates an integer arithmetic expression string.\n///\n/// Supports `+ - * /` with integer division, standard precedence\n/// (`*` and `/` bind tighter than `+` and `-`), left-associativity,\n/// and parentheses. Literals are non-negative integers and the input\n/// contains no spaces.\n///\n/// Examples:\n///   eval_expr(\"2+3*4\")    == 14\n///   eval_expr(\"(2+3)*4\")  == 20\n///   eval_expr(\"100/5/2\")  == 10\npub fn eval_expr(s: String) -> Int {\n  let chars = string.to_graphemes(s)\n  let #(value, rest) = parse_expr(chars)\n  case rest {\n    [] -> value\n    _ -> panic as \"unexpected trailing input in expression\"\n  }\n}\n\n/// expr := term (('+' | '-') term)*\nfn parse_expr(tokens: List(String)) -> #(Int, List(String)) {\n  let #(left, rest) = parse_term(tokens)\n  parse_expr_loop(left, rest)\n}\n\nfn parse_expr_loop(\n  acc: Int,\n  tokens: List(String),\n) -> #(Int, List(String)) {\n  case tokens {\n    [\"+\", ..rest] -> {\n      let #(right, rest2) = parse_term(rest)\n      parse_expr_loop(acc + right, rest2)\n    }\n    [\"-\", ..rest] -> {\n      let #(right, rest2) = parse_term(rest)\n      parse_expr_loop(acc - right, rest2)\n    }\n    _ -> #(acc, tokens)\n  }\n}\n\n/// term := factor (('*' | '/') factor)*\nfn parse_term(tokens: List(String)) -> #(Int, List(String)) {\n  let #(left, rest) = parse_factor(tokens)\n  parse_term_loop(left, rest)\n}\n\nfn parse_term_loop(\n  acc: Int,\n  tokens: List(String),\n) -> #(Int, List(String)) {\n  case tokens {\n    [\"*\", ..rest] -> {\n      let #(right, rest2) = parse_factor(rest)\n      parse_term_loop(acc * right, rest2)\n    }\n    [\"/\", ..rest] -> {\n      let #(right, rest2) = parse_factor(rest)\n      case int.divide(acc, right) {\n        Ok(q) -> parse_term_loop(q, rest2)\n        Error(_) -> panic as \"division by zero in expression\"\n      }\n    }\n    _ -> #(acc, tokens)\n  }\n}\n\n/// factor := number | '(' expr ')'\nfn parse_factor(tokens: List(String)) -> #(Int, List(String)) {\n  case tokens {\n    [\"(\", ..rest] -> {\n      let #(value, rest2) = parse_expr(rest)\n      case rest2 {\n        [\")\", ..rest3] -> #(value, rest3)\n        _ -> panic as \"missing closing parenthesis\"\n      }\n    }\n    [first, ..] ->\n      case is_digit(first) {\n        True -> parse_number(tokens, 0)\n        False -> panic as \"expected a number or '('\"\n      }\n    [] -> panic as \"unexpected end of input\"\n  }\n}\n\n/// Consumes a run of digit graphemes, building up the integer value.\nfn parse_number(\n  tokens: List(String),\n  acc: Int,\n) -> #(Int, List(String)) {\n  case tokens {\n    [first, ..rest] ->\n      case digit_value(first) {\n        Ok(d) -> parse_number(rest, acc * 10 + d)\n        Error(_) -> #(acc, tokens)\n      }\n    [] -> #(acc, tokens)\n  }\n}\n\nfn is_digit(grapheme: String) -> Bool {\n  case digit_value(grapheme) {\n    Ok(_) -> True\n    Error(_) -> False\n  }\n}\n\nfn digit_value(grapheme: String) -> Result(Int, Nil) {\n  case grapheme {\n    \"0\" -> Ok(0)\n    \"1\" -> Ok(1)\n    \"2\" -> Ok(2)\n    \"3\" -> Ok(3)\n    \"4\" -> Ok(4)\n    \"5\" -> Ok(5)\n    \"6\" -> Ok(6)\n    \"7\" -> Ok(7)\n    \"8\" -> Ok(8)\n    \"9\" -> Ok(9)\n    _ -> Error(Nil)\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "eval_expr",
+      "sample": 1,
+      "code": "import gleam/int\nimport gleam/string\n\n/// Evaluate an integer arithmetic expression with + - * / (integer division),\n/// standard precedence (* and / bind tighter than + and -), left-associativity,\n/// and parentheses. Literals are non-negative and the input contains no spaces.\n///\n/// Examples:\n///   eval_expr(\"2+3*4\")    -> 14\n///   eval_expr(\"(2+3)*4\")  -> 20\n///   eval_expr(\"100/5/2\")  -> 10\npub fn eval_expr(s: String) -> Int {\n  let chars = string.to_graphemes(s)\n  let #(value, _rest) = parse_expr(chars)\n  value\n}\n\n// expr := term ((\"+\" | \"-\") term)*\nfn parse_expr(chars: List(String)) -> #(Int, List(String)) {\n  let #(left, rest) = parse_term(chars)\n  parse_expr_rest(left, rest)\n}\n\nfn parse_expr_rest(\n  acc: Int,\n  chars: List(String),\n) -> #(Int, List(String)) {\n  case chars {\n    [\"+\", ..rest] -> {\n      let #(right, rest2) = parse_term(rest)\n      parse_expr_rest(acc + right, rest2)\n    }\n    [\"-\", ..rest] -> {\n      let #(right, rest2) = parse_term(rest)\n      parse_expr_rest(acc - right, rest2)\n    }\n    _ -> #(acc, chars)\n  }\n}\n\n// term := factor ((\"*\" | \"/\") factor)*\nfn parse_term(chars: List(String)) -> #(Int, List(String)) {\n  let #(left, rest) = parse_factor(chars)\n  parse_term_rest(left, rest)\n}\n\nfn parse_term_rest(\n  acc: Int,\n  chars: List(String),\n) -> #(Int, List(String)) {\n  case chars {\n    [\"*\", ..rest] -> {\n      let #(right, rest2) = parse_factor(rest)\n      parse_term_rest(acc * right, rest2)\n    }\n    [\"/\", ..rest] -> {\n      let #(right, rest2) = parse_factor(rest)\n      // Integer division. gleam/int.divide returns Result; division by zero\n      // yields 0 via the fallback, mirroring Gleam's safe-division semantics.\n      let quotient = case int.divide(acc, right) {\n        Ok(q) -> q\n        Error(_) -> 0\n      }\n      parse_term_rest(quotient, rest2)\n    }\n    _ -> #(acc, chars)\n  }\n}\n\n// factor := \"(\" expr \")\" | number\nfn parse_factor(chars: List(String)) -> #(Int, List(String)) {\n  case chars {\n    [\"(\", ..rest] -> {\n      let #(value, rest2) = parse_expr(rest)\n      case rest2 {\n        [\")\", ..rest3] -> #(value, rest3)\n        _ -> #(value, rest2)\n      }\n    }\n    _ -> parse_number(chars, \"\")\n  }\n}\n\n// Consume a run of digit graphemes into an integer literal.\nfn parse_number(\n  chars: List(String),\n  acc: String,\n) -> #(Int, List(String)) {\n  case chars {\n    [c, ..rest] ->\n      case is_digit(c) {\n        True -> parse_number(rest, acc <> c)\n        False -> finish_number(acc, chars)\n      }\n    [] -> finish_number(acc, chars)\n  }\n}\n\nfn finish_number(acc: String, rest: List(String)) -> #(Int, List(String)) {\n  case int.parse(acc) {\n    Ok(n) -> #(n, rest)\n    Error(_) -> #(0, rest)\n  }\n}\n\nfn is_digit(c: String) -> Bool {\n  case c {\n    \"0\" | \"1\" | \"2\" | \"3\" | \"4\" | \"5\" | \"6\" | \"7\" | \"8\" | \"9\" -> True\n    _ -> False\n  }\n}\n"
+    },
+    {
+      "lang": "gleam",
+      "task": "eval_expr",
+      "sample": 2,
+      "code": "import gleam/string\n\npub fn eval_expr(s: String) -> Int {\n  let graphemes = string.to_graphemes(s)\n  let #(value, _rest) = parse_expr(graphemes)\n  value\n}\n\n// expr = term ((\"+\" | \"-\") term)*\nfn parse_expr(tokens: List(String)) -> #(Int, List(String)) {\n  let #(left, rest) = parse_term(tokens)\n  parse_expr_rest(left, rest)\n}\n\nfn parse_expr_rest(\n  acc: Int,\n  tokens: List(String),\n) -> #(Int, List(String)) {\n  case tokens {\n    [\"+\", ..rest] -> {\n      let #(right, rest2) = parse_term(rest)\n      parse_expr_rest(acc + right, rest2)\n    }\n    [\"-\", ..rest] -> {\n      let #(right, rest2) = parse_term(rest)\n      parse_expr_rest(acc - right, rest2)\n    }\n    _ -> #(acc, tokens)\n  }\n}\n\n// term = factor ((\"*\" | \"/\") factor)*\nfn parse_term(tokens: List(String)) -> #(Int, List(String)) {\n  let #(left, rest) = parse_factor(tokens)\n  parse_term_rest(left, rest)\n}\n\nfn parse_term_rest(\n  acc: Int,\n  tokens: List(String),\n) -> #(Int, List(String)) {\n  case tokens {\n    [\"*\", ..rest] -> {\n      let #(right, rest2) = parse_factor(rest)\n      parse_term_rest(acc * right, rest2)\n    }\n    [\"/\", ..rest] -> {\n      let #(right, rest2) = parse_factor(rest)\n      parse_term_rest(acc / right, rest2)\n    }\n    _ -> #(acc, tokens)\n  }\n}\n\n// factor = number | \"(\" expr \")\"\nfn parse_factor(tokens: List(String)) -> #(Int, List(String)) {\n  case tokens {\n    [\"(\", ..rest] -> {\n      let #(value, rest2) = parse_expr(rest)\n      case rest2 {\n        [\")\", ..rest3] -> #(value, rest3)\n        _ -> #(value, rest2)\n      }\n    }\n    _ -> parse_number(tokens, 0, False)\n  }\n}\n\nfn parse_number(\n  tokens: List(String),\n  acc: Int,\n  seen: Bool,\n) -> #(Int, List(String)) {\n  case tokens {\n    [head, ..rest] -> {\n      case digit_value(head) {\n        Ok(d) -> parse_number(rest, acc * 10 + d, True)\n        Error(_) -> {\n          let _ = seen\n          #(acc, tokens)\n        }\n      }\n    }\n    [] -> #(acc, tokens)\n  }\n}\n\nfn digit_value(c: String) -> Result(Int, Nil) {\n  case c {\n    \"0\" -> Ok(0)\n    \"1\" -> Ok(1)\n    \"2\" -> Ok(2)\n    \"3\" -> Ok(3)\n    \"4\" -> Ok(4)\n    \"5\" -> Ok(5)\n    \"6\" -> Ok(6)\n    \"7\" -> Ok(7)\n    \"8\" -> Ok(8)\n    \"9\" -> Ok(9)\n    _ -> Error(Nil)\n  }\n}"
+    },
+    {
+      "lang": "julia",
+      "task": "total",
+      "sample": 0,
+      "code": "function total(xs)\n    s = 0\n    for x in xs\n        s += x\n    end\n    return s\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "total",
+      "sample": 1,
+      "code": "function total(xs)\n    s = 0\n    for x in xs\n        s += x\n    end\n    return s\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "total",
+      "sample": 2,
+      "code": "\"\"\"\n    total(xs)\n\nReturn the sum of the integers in `xs`, or `0` if `xs` is empty.\n\n# Examples\n```julia\njulia> total([1, 2, 3, 4])\n10\n\njulia> total([])\n0\n\njulia> total([5])\n5\n```\n\"\"\"\ntotal(xs) = sum(xs; init = 0)\n"
+    },
+    {
+      "lang": "julia",
+      "task": "largest",
+      "sample": 0,
+      "code": "function largest(xs)\n    result = xs[firstindex(xs)]\n    for x in xs\n        if x > result\n            result = x\n        end\n    end\n    return result\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "largest",
+      "sample": 1,
+      "code": "function largest(xs)\n    result = xs[1]\n    for x in xs[2:end]\n        if x > result\n            result = x\n        end\n    end\n    return result\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "largest",
+      "sample": 2,
+      "code": "\"\"\"\n    largest(xs)\n\nReturn the largest element of the non-empty collection `xs`.\n\n# Examples\n```jldoctest\njulia> largest([3, 1, 2])\n3\n\njulia> largest([5])\n5\n```\n\"\"\"\nlargest(xs) = maximum(xs)\n"
+    },
+    {
+      "lang": "julia",
+      "task": "count_even",
+      "sample": 0,
+      "code": "function count_even(xs)\n    return count(x -> x % 2 == 0, xs)\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "count_even",
+      "sample": 1,
+      "code": "function count_even(xs)\n    count(iseven, xs)\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "count_even",
+      "sample": 2,
+      "code": "\"\"\"\n    count_even(xs)\n\nReturn the number of even elements in the iterable `xs`.\n\n# Examples\n```julia\njulia> count_even([1, 2, 3, 4, 6])\n3\n\njulia> count_even([1, 3, 5])\n0\n```\n\"\"\"\ncount_even(xs) = count(iseven, xs)\n"
+    },
+    {
+      "lang": "julia",
+      "task": "gcd_of",
+      "sample": 0,
+      "code": "\"\"\"\n    gcd_of(a, b)\n\nCompute the greatest common divisor of two non-negative integers `a` and `b`\nusing the Euclidean algorithm.\n\nAssumes `a, b >= 0`. By convention `gcd_of(x, 0) == x` (and `gcd_of(0, 0) == 0`).\n\n# Examples\n```julia\njulia> gcd_of(12, 18)\n6\n\njulia> gcd_of(7, 0)\n7\n\njulia> gcd_of(0, 5)\n5\n```\n\"\"\"\nfunction gcd_of(a, b)\n    while b != 0\n        a, b = b, a % b\n    end\n    return a\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "gcd_of",
+      "sample": 1,
+      "code": "\"\"\"\n    gcd_of(a, b)\n\nCompute the greatest common divisor of two non-negative integers `a` and `b`\nusing the Euclidean algorithm.\n\nBy convention, `gcd_of(x, 0) == x` and `gcd_of(0, x) == x`.\n\n# Examples\n```julia\njulia> gcd_of(12, 18)\n6\n\njulia> gcd_of(7, 0)\n7\n\njulia> gcd_of(0, 5)\n5\n```\n\"\"\"\nfunction gcd_of(a, b)\n    while b != 0\n        a, b = b, a % b\n    end\n    return a\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "gcd_of",
+      "sample": 2,
+      "code": "\"\"\"\n    gcd_of(a, b)\n\nCompute the greatest common divisor of two non-negative integers `a` and `b`.\n\nBy convention, `gcd_of(x, 0) == x` and `gcd_of(0, x) == x`.\nUses the Euclidean algorithm.\n\n# Examples\n```julia\njulia> gcd_of(12, 18)\n6\n\njulia> gcd_of(7, 0)\n7\n\njulia> gcd_of(0, 5)\n5\n```\n\"\"\"\nfunction gcd_of(a, b)\n    while b != 0\n        a, b = b, a % b\n    end\n    return a\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "fib",
+      "sample": 0,
+      "code": "\"\"\"\n    fib(n::Integer) -> Integer\n\nReturn the `n`th Fibonacci number, where `fib(0) == 0` and `fib(1) == 1`.\n\nUses an iterative bottom-up approach in O(n) time and O(1) space.\n\n# Examples\n```julia\njulia> fib(10)\n55\n\njulia> fib(20)\n6765\n```\n\"\"\"\nfunction fib(n::Integer)\n    n < 0 && throw(DomainError(n, \"fib is not defined for negative integers\"))\n    n < 2 && return n\n\n    prev, curr = 0, 1\n    for _ in 2:n\n        prev, curr = curr, prev + curr\n    end\n    return curr\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "fib",
+      "sample": 1,
+      "code": "\"\"\"\n    fib(n::Integer)\n\nReturn the `n`th Fibonacci number, defined by\n\n    fib(0) = 0\n    fib(1) = 1\n    fib(n) = fib(n - 1) + fib(n - 2)   for n ≥ 2\n\nComputed iteratively in O(n) time and O(1) space. Uses `BigInt`\naccumulators so the result is exact for arbitrarily large `n`\n(no silent integer overflow).\n\n# Examples\n```julia-repl\njulia> fib(0)\n0\n\njulia> fib(10)\n55\n\njulia> fib(20)\n6765\n```\n\"\"\"\nfunction fib(n::Integer)\n    n < 0 && throw(DomainError(n, \"fib is not defined for negative n\"))\n    n < 2 && return BigInt(n)\n\n    prev = BigInt(0)\n    curr = BigInt(1)\n    for _ in 2:n\n        prev, curr = curr, prev + curr\n    end\n    return curr\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "fib",
+      "sample": 2,
+      "code": "\"\"\"\n    fib(n::Integer) -> Integer\n\nReturn the `n`th Fibonacci number, where `fib(0) == 0` and `fib(1) == 1`.\n\nUses an iterative bottom-up computation, running in O(n) time and O(1) space.\nThrows a `DomainError` for negative `n`.\n\n# Examples\n```julia\njulia> fib(0)\n0\n\njulia> fib(1)\n1\n\njulia> fib(10)\n55\n\njulia> fib(20)\n6765\n```\n\"\"\"\nfunction fib(n::Integer)\n    n < 0 && throw(DomainError(n, \"fib is not defined for negative integers\"))\n    n < 2 && return n\n    a, b = 0, 1\n    for _ in 2:n\n        a, b = b, a + b\n    end\n    return b\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "reverse_digits",
+      "sample": 0,
+      "code": "\"\"\"\n    reverse_digits(n::Integer) -> Integer\n\nReturn the integer formed by reversing the decimal digits of `n`.\n\n`n` must be non-negative (`n >= 0`). Leading zeros produced by the reversal\nare dropped naturally, since the result is built as an integer.\n\n# Examples\n```julia\njulia> reverse_digits(1230)\n321\n\njulia> reverse_digits(100)\n1\n\njulia> reverse_digits(7)\n7\n\njulia> reverse_digits(0)\n0\n```\n\"\"\"\nfunction reverse_digits(n::Integer)\n    n >= 0 || throw(ArgumentError(\"n must be non-negative, got $n\"))\n\n    result = zero(n)\n    while n > 0\n        result = result * 10 + (n % 10)\n        n = n ÷ 10\n    end\n    return result\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "reverse_digits",
+      "sample": 1,
+      "code": "function reverse_digits(n::Integer)\n    n >= 0 || throw(DomainError(n, \"n must be non-negative\"))\n    result = zero(n)\n    while n > 0\n        result = result * 10 + n % 10\n        n = n ÷ 10\n    end\n    return result\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "reverse_digits",
+      "sample": 2,
+      "code": "\"\"\"\n    reverse_digits(n::Integer) -> Integer\n\nReturn the integer formed by reversing the decimal digits of `n`.\n\n`n` must be non-negative. Leading zeros produced by the reversal are dropped\nbecause the result is returned as an `Integer` (e.g. `reverse_digits(1230) == 321`,\n`reverse_digits(100) == 1`, `reverse_digits(7) == 7`).\n\"\"\"\nfunction reverse_digits(n::Integer)\n    n >= 0 || throw(DomainError(n, \"n must be non-negative\"))\n\n    result = zero(n)\n    while n > 0\n        result = result * 10 + n % 10\n        n = n ÷ 10\n    end\n    return result\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "is_prime",
+      "sample": 0,
+      "code": "\"\"\"\n    is_prime(n)\n\nReturn 1 if `n` is prime, otherwise return 0.\n\nA prime number is an integer greater than 1 that has no positive divisors\nother than 1 and itself.\n\n# Examples\n```julia\njulia> is_prime(7)\n1\n\njulia> is_prime(9)\n0\n\njulia> is_prime(2)\n1\n```\n\"\"\"\nfunction is_prime(n)\n    if n < 2\n        return 0\n    end\n    if n < 4\n        # 2 and 3 are prime\n        return 1\n    end\n    if n % 2 == 0\n        return 0\n    end\n    i = 3\n    while i * i <= n\n        if n % i == 0\n            return 0\n        end\n        i += 2\n    end\n    return 1\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "is_prime",
+      "sample": 1,
+      "code": "function is_prime(n)\n    if n < 2\n        return 0\n    end\n    if n == 2\n        return 1\n    end\n    if n % 2 == 0\n        return 0\n    end\n    i = 3\n    while i * i <= n\n        if n % i == 0\n            return 0\n        end\n        i += 2\n    end\n    return 1\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "is_prime",
+      "sample": 2,
+      "code": "function is_prime(n::Integer)\n    if n < 2\n        return 0\n    end\n    if n < 4\n        return 1\n    end\n    if n % 2 == 0\n        return 0\n    end\n    i = 3\n    while i * i <= n\n        if n % i == 0\n            return 0\n        end\n        i += 2\n    end\n    return 1\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "digit_sum",
+      "sample": 0,
+      "code": "\"\"\"\n    digit_sum(n::Integer) -> Integer\n\nReturn the sum of the decimal digits of a non-negative integer `n`.\n\n# Examples\n```jldoctest\njulia> digit_sum(1234)\n10\n\njulia> digit_sum(99)\n18\n\njulia> digit_sum(0)\n0\n```\n\"\"\"\nfunction digit_sum(n::Integer)\n    n >= 0 || throw(DomainError(n, \"n must be non-negative\"))\n    s = 0\n    while n > 0\n        s += n % 10\n        n ÷= 10\n    end\n    return s\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "digit_sum",
+      "sample": 1,
+      "code": "\"\"\"\n    digit_sum(n::Integer) -> Int\n\nReturn the sum of the decimal digits of `n`, where `n >= 0`.\n\n# Examples\n```jldoctest\njulia> digit_sum(1234)\n10\n\njulia> digit_sum(99)\n18\n\njulia> digit_sum(0)\n0\n```\n\"\"\"\nfunction digit_sum(n::Integer)\n    n >= 0 || throw(ArgumentError(\"n must be non-negative, got $n\"))\n    s = 0\n    while n > 0\n        s += n % 10\n        n ÷= 10\n    end\n    return s\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "digit_sum",
+      "sample": 2,
+      "code": "function digit_sum(n::Integer)\n    n >= 0 || throw(ArgumentError(\"n must be non-negative\"))\n    s = 0\n    while n > 0\n        s += n % 10\n        n = n ÷ 10\n    end\n    return s\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "collatz",
+      "sample": 0,
+      "code": "\"\"\"\n    collatz(n::Integer) -> Int\n\nReturn the number of Collatz steps required to reach 1 starting from `n`.\n\nThe Collatz sequence is defined for `n >= 1` by repeatedly applying:\n- if `n` is even, replace it with `n / 2`\n- if `n` is odd, replace it with `3n + 1`\n\nThe count is the number of such steps taken until the value becomes 1.\nBy definition `collatz(1) == 0`.\n\n# Examples\n```julia\njulia> collatz(1)\n0\n\njulia> collatz(6)\n8\n\njulia> collatz(27)\n111\n```\n\"\"\"\nfunction collatz(n::Integer)\n    n >= 1 || throw(DomainError(n, \"collatz requires n >= 1\"))\n    steps = 0\n    while n != 1\n        if iseven(n)\n            n = n ÷ 2\n        else\n            n = 3n + 1\n        end\n        steps += 1\n    end\n    return steps\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "collatz",
+      "sample": 1,
+      "code": "\"\"\"\n    collatz(n)\n\nReturn the number of Collatz steps required to reach 1, starting from `n`.\n\nThe Collatz transformation is:\n- if `n` is even, replace it with `n ÷ 2`;\n- if `n` is odd, replace it with `3n + 1`.\n\n`collatz(1)` is `0` because the sequence already starts at 1.\n\n`n` must be a positive integer (`n >= 1`).\n\n# Examples\n```julia\njulia> collatz(6)\n8\n\njulia> collatz(27)\n111\n```\n\"\"\"\nfunction collatz(n::Integer)\n    n >= 1 || throw(ArgumentError(\"n must be >= 1, got $n\"))\n    steps = 0\n    while n != 1\n        if iseven(n)\n            n = div(n, 2)\n        else\n            n = 3n + 1\n        end\n        steps += 1\n    end\n    return steps\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "collatz",
+      "sample": 2,
+      "code": "\"\"\"\n    collatz(n::Integer) -> Int\n\nReturn the number of Collatz steps required to reach 1 starting from `n`.\n\nThe Collatz map is defined as:\n\n  - if `n` is even, replace `n` with `n ÷ 2`\n  - if `n` is odd, replace `n` with `3n + 1`\n\nEach application of the map counts as one step. By definition `collatz(1) == 0`.\n\n# Arguments\n- `n::Integer`: the starting value, which must satisfy `n >= 1`.\n\n# Examples\n```jldoctest\njulia> collatz(1)\n0\n\njulia> collatz(6)\n8\n\njulia> collatz(27)\n111\n```\n\"\"\"\nfunction collatz(n::Integer)\n    n >= 1 || throw(ArgumentError(\"n must be >= 1, got $n\"))\n    steps = 0\n    while n != 1\n        if iseven(n)\n            n = n ÷ 2\n        else\n            n = 3n + 1\n        end\n        steps += 1\n    end\n    return steps\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "eval_expr",
+      "sample": 0,
+      "code": "\"\"\"\n    eval_expr(s::AbstractString) -> Int\n\nEvaluate an integer arithmetic expression given as a string.\n\nSupports the binary operators `+`, `-`, `*`, and `/` (integer division),\nwith standard precedence (`*` and `/` bind tighter than `+` and `-`),\nleft-associativity, and parentheses for grouping. Literals are\nnon-negative integers and the input contains no spaces.\n\n# Examples\n```julia\njulia> eval_expr(\"2+3*4\")\n14\n\njulia> eval_expr(\"(2+3)*4\")\n20\n\njulia> eval_expr(\"100/5/2\")\n10\n```\n\nThe grammar implemented (a standard recursive-descent layout) is:\n\n    expr   := term   (('+' | '-') term)*\n    term   := factor (('*' | '/') factor)*\n    factor := number | '(' expr ')'\n\nInteger division uses `div`, which truncates toward zero.\n\"\"\"\nfunction eval_expr(s::AbstractString)\n    chars = collect(s)          # work on a Vector{Char} for O(1) indexed access\n    n = length(chars)\n    pos = Ref(1)                # current parse position (1-based)\n\n    # Peek at the current character, or '\\0' if input is exhausted.\n    peek() = pos[] <= n ? chars[pos[]] : '\\0'\n\n    # parse an `expr`: a sequence of terms joined by + / -\n    function parse_expr()\n        value = parse_term()\n        while true\n            c = peek()\n            if c == '+'\n                pos[] += 1\n                value += parse_term()\n            elseif c == '-'\n                pos[] += 1\n                value -= parse_term()\n            else\n                break\n            end\n        end\n        return value\n    end\n\n    # parse a `term`: a sequence of factors joined by * / /\n    function parse_term()\n        value = parse_factor()\n        while true\n            c = peek()\n            if c == '*'\n                pos[] += 1\n                value *= parse_factor()\n            elseif c == '/'\n                pos[] += 1\n                divisor = parse_factor()\n                value = div(value, divisor)   # integer (truncating) division\n            else\n                break\n            end\n        end\n        return value\n    end\n\n    # parse a `factor`: either a parenthesized expression or a number literal\n    function parse_factor()\n        c = peek()\n        if c == '('\n            pos[] += 1                 # consume '('\n            value = parse_expr()\n            if peek() != ')'\n                error(\"eval_expr: expected ')' at position $(pos[]) in \\\"$s\\\"\")\n            end\n            pos[] += 1                 # consume ')'\n            return value\n        elseif isdigit(c)\n            return parse_number()\n        else\n            error(\"eval_expr: unexpected character '$c' at position $(pos[]) in \\\"$s\\\"\")\n        end\n    end\n\n    # parse a non-negative integer literal\n    function parse_number()\n        start = pos[]\n        while isdigit(peek())\n            pos[] += 1\n        end\n        return parse(Int, String(chars[start:pos[]-1]))\n    end\n\n    result = parse_expr()\n    if pos[] <= n\n        error(\"eval_expr: unexpected trailing character '$(peek())' at position $(pos[]) in \\\"$s\\\"\")\n    end\n    return result\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "eval_expr",
+      "sample": 1,
+      "code": "\"\"\"\n    eval_expr(s::AbstractString)\n\nEvaluate an integer arithmetic expression with `+ - * /` (integer division),\nstandard precedence (`*` and `/` bind tighter than `+` and `-`),\nleft-associativity, and parentheses.\n\nLiterals are non-negative integers and the input contains no spaces.\n\n# Examples\n```julia\neval_expr(\"2+3*4\")    # 14\neval_expr(\"(2+3)*4\")  # 20\neval_expr(\"100/5/2\")  # 10\n```\n\"\"\"\nfunction eval_expr(s::AbstractString)\n    pos = 1\n    n = lastindex(s)\n\n    peek() = pos <= n ? s[pos] : '\\0'\n\n    # expr := term (('+' | '-') term)*\n    function parse_expr()\n        value = parse_term()\n        while peek() == '+' || peek() == '-'\n            op = peek()\n            pos = nextind(s, pos)\n            rhs = parse_term()\n            value = op == '+' ? value + rhs : value - rhs\n        end\n        return value\n    end\n\n    # term := factor (('*' | '/') factor)*\n    function parse_term()\n        value = parse_factor()\n        while peek() == '*' || peek() == '/'\n            op = peek()\n            pos = nextind(s, pos)\n            rhs = parse_factor()\n            value = op == '*' ? value * rhs : div(value, rhs)\n        end\n        return value\n    end\n\n    # factor := number | '(' expr ')'\n    function parse_factor()\n        c = peek()\n        if c == '('\n            pos = nextind(s, pos)               # consume '('\n            value = parse_expr()\n            if peek() != ')'\n                throw(ArgumentError(\"expected ')' at position $pos in \\\"$s\\\"\"))\n            end\n            pos = nextind(s, pos)               # consume ')'\n            return value\n        elseif isdigit(c)\n            return parse_number()\n        else\n            throw(ArgumentError(\"unexpected character '$c' at position $pos in \\\"$s\\\"\"))\n        end\n    end\n\n    function parse_number()\n        start = pos\n        while isdigit(peek())\n            pos = nextind(s, pos)\n        end\n        return parse(Int, SubString(s, start, prevind(s, pos)))\n    end\n\n    if isempty(s)\n        throw(ArgumentError(\"empty expression\"))\n    end\n\n    result = parse_expr()\n\n    if pos <= n\n        throw(ArgumentError(\"unexpected trailing input '$(peek())' at position $pos in \\\"$s\\\"\"))\n    end\n\n    return result\nend\n"
+    },
+    {
+      "lang": "julia",
+      "task": "eval_expr",
+      "sample": 2,
+      "code": "\"\"\"\n    eval_expr(s::AbstractString) -> Int\n\nEvaluate an integer arithmetic expression given as a string.\n\nSupported operators: `+`, `-`, `*`, `/` where `/` is integer (truncating)\ndivision. Multiplication and division bind tighter than addition and\nsubtraction, all operators are left-associative, and parentheses may be used\nfor grouping. Literals are non-negative integers and the input contains no\nspaces.\n\n# Examples\n```julia\njulia> eval_expr(\"2+3*4\")\n14\n\njulia> eval_expr(\"(2+3)*4\")\n20\n\njulia> eval_expr(\"100/5/2\")\n10\n```\n\"\"\"\nfunction eval_expr(s::AbstractString)\n    # Recursive-descent parser over the character vector `chars`, tracking the\n    # current position with `pos` (1-based index of the next unread char).\n    chars = collect(s)\n    n = length(chars)\n    pos = 1\n\n    # Peek at the current character without consuming it; returns '\\0' at end.\n    peek() = pos <= n ? chars[pos] : '\\0'\n\n    # expr := term (('+' | '-') term)*\n    function parse_expr()\n        value = parse_term()\n        while true\n            c = peek()\n            if c == '+'\n                pos += 1\n                value += parse_term()\n            elseif c == '-'\n                pos += 1\n                value -= parse_term()\n            else\n                break\n            end\n        end\n        return value\n    end\n\n    # term := factor (('*' | '/') factor)*\n    function parse_term()\n        value = parse_factor()\n        while true\n            c = peek()\n            if c == '*'\n                pos += 1\n                value *= parse_factor()\n            elseif c == '/'\n                pos += 1\n                divisor = parse_factor()\n                divisor == 0 && throw(DivideError())\n                # Integer (truncating) division.\n                value = div(value, divisor)\n            else\n                break\n            end\n        end\n        return value\n    end\n\n    # factor := number | '(' expr ')'\n    function parse_factor()\n        c = peek()\n        if c == '('\n            pos += 1\n            value = parse_expr()\n            peek() == ')' || throw(ArgumentError(\"expected ')' at position $pos\"))\n            pos += 1\n            return value\n        elseif isdigit(c)\n            return parse_number()\n        else\n            throw(ArgumentError(\"unexpected character '$c' at position $pos\"))\n        end\n    end\n\n    # number := digit+   (non-negative integer literal)\n    function parse_number()\n        start = pos\n        while isdigit(peek())\n            pos += 1\n        end\n        return parse(Int, String(chars[start:pos-1]))\n    end\n\n    result = parse_expr()\n    pos <= n && throw(ArgumentError(\"unexpected trailing character '$(peek())' at position $pos\"))\n    return result\nend\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "total",
+      "sample": 0,
+      "code": "MODULE Sol;\n\nPROCEDURE Total*(a: ARRAY OF INTEGER; n: INTEGER): INTEGER;\n  VAR i, sum: INTEGER;\nBEGIN\n  sum := 0;\n  i := 0;\n  WHILE i < n DO\n    sum := sum + a[i];\n    INC(i)\n  END;\n  RETURN sum\nEND Total;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "total",
+      "sample": 1,
+      "code": "MODULE Sol;\n\n  PROCEDURE Total*(a: ARRAY OF INTEGER; n: INTEGER): INTEGER;\n    VAR i, sum: INTEGER;\n  BEGIN\n    sum := 0;\n    i := 0;\n    WHILE i < n DO\n      sum := sum + a[i];\n      INC(i)\n    END;\n    RETURN sum\n  END Total;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "total",
+      "sample": 2,
+      "code": "MODULE Sol;\n\nPROCEDURE Total*(a: ARRAY OF INTEGER; n: INTEGER): INTEGER;\n  VAR i, sum: INTEGER;\nBEGIN\n  sum := 0;\n  i := 0;\n  WHILE i < n DO\n    sum := sum + a[i];\n    INC(i)\n  END;\n  RETURN sum\nEND Total;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "largest",
+      "sample": 0,
+      "code": "MODULE Sol;\n\n\tPROCEDURE Largest*(a: ARRAY OF INTEGER; n: INTEGER): INTEGER;\n\t\tVAR i, max: INTEGER;\n\tBEGIN\n\t\tmax := a[0];\n\t\ti := 1;\n\t\tWHILE i < n DO\n\t\t\tIF a[i] > max THEN max := a[i] END;\n\t\t\tINC(i)\n\t\tEND;\n\t\tRETURN max\n\tEND Largest;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "largest",
+      "sample": 1,
+      "code": "MODULE Sol;\n\n\tPROCEDURE Largest*(a: ARRAY OF INTEGER; n: INTEGER): INTEGER;\n\t\tVAR i, max: INTEGER;\n\tBEGIN\n\t\tmax := a[0];\n\t\ti := 1;\n\t\tWHILE i < n DO\n\t\t\tIF a[i] > max THEN max := a[i] END;\n\t\t\tINC(i)\n\t\tEND;\n\t\tRETURN max\n\tEND Largest;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "largest",
+      "sample": 2,
+      "code": "MODULE Sol;\n\nPROCEDURE Largest*(a: ARRAY OF INTEGER; n: INTEGER): INTEGER;\n  VAR i, max: INTEGER;\nBEGIN\n  max := a[0];\n  i := 1;\n  WHILE i < n DO\n    IF a[i] > max THEN max := a[i] END;\n    INC(i)\n  END;\n  RETURN max\nEND Largest;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "count_even",
+      "sample": 0,
+      "code": "MODULE Sol;\n\nPROCEDURE CountEven*(a: ARRAY OF INTEGER; n: INTEGER): INTEGER;\n  VAR i, count: INTEGER;\nBEGIN\n  count := 0;\n  i := 0;\n  WHILE i < n DO\n    IF a[i] MOD 2 = 0 THEN\n      count := count + 1\n    END;\n    i := i + 1\n  END;\n  RETURN count\nEND CountEven;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "count_even",
+      "sample": 1,
+      "code": "MODULE Sol;\n\nPROCEDURE CountEven*(a: ARRAY OF INTEGER; n: INTEGER): INTEGER;\n\tVAR i, count: INTEGER;\nBEGIN\n\tcount := 0;\n\ti := 0;\n\tWHILE i < n DO\n\t\tIF a[i] MOD 2 = 0 THEN\n\t\t\tcount := count + 1\n\t\tEND;\n\t\ti := i + 1\n\tEND;\n\tRETURN count\nEND CountEven;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "count_even",
+      "sample": 2,
+      "code": "MODULE Sol;\n\nPROCEDURE CountEven*(a: ARRAY OF INTEGER; n: INTEGER): INTEGER;\n  VAR i, count: INTEGER;\nBEGIN\n  count := 0;\n  i := 0;\n  WHILE i < n DO\n    IF a[i] MOD 2 = 0 THEN\n      count := count + 1\n    END;\n    i := i + 1\n  END;\n  RETURN count\nEND CountEven;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "gcd_of",
+      "sample": 0,
+      "code": "MODULE Sol;\n\nPROCEDURE GcdOf*(a, b: INTEGER): INTEGER;\n\tVAR t: INTEGER;\nBEGIN\n\tWHILE b # 0 DO\n\t\tt := b;\n\t\tb := a MOD b;\n\t\ta := t\n\tEND\n\tRETURN a\nEND GcdOf;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "gcd_of",
+      "sample": 1,
+      "code": "MODULE Sol;\n\nPROCEDURE GcdOf*(a, b: INTEGER): INTEGER;\n  VAR t: INTEGER;\nBEGIN\n  WHILE b # 0 DO\n    t := b;\n    b := a MOD b;\n    a := t\n  END;\n  RETURN a\nEND GcdOf;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "gcd_of",
+      "sample": 2,
+      "code": "MODULE Sol;\n\nPROCEDURE GcdOf*(a, b: INTEGER): INTEGER;\n  VAR t: INTEGER;\nBEGIN\n  WHILE b # 0 DO\n    t := b;\n    b := a MOD b;\n    a := t\n  END;\n  RETURN a\nEND GcdOf;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "fib",
+      "sample": 0,
+      "code": "MODULE Sol;\n\n\tPROCEDURE Fib*(n: INTEGER): INTEGER;\n\t\tVAR a, b, t, i: INTEGER;\n\tBEGIN\n\t\ta := 0; b := 1; i := 0;\n\t\tWHILE i < n DO\n\t\t\tt := a + b;\n\t\t\ta := b;\n\t\t\tb := t;\n\t\t\ti := i + 1\n\t\tEND;\n\t\tRETURN a\n\tEND Fib;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "fib",
+      "sample": 1,
+      "code": "MODULE Sol;\n\nPROCEDURE Fib*(n: INTEGER): INTEGER;\n  VAR a, b, t, i: INTEGER;\nBEGIN\n  a := 0; b := 1; i := 0;\n  WHILE i < n DO\n    t := a + b;\n    a := b;\n    b := t;\n    INC(i)\n  END;\n  RETURN a\nEND Fib;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "fib",
+      "sample": 2,
+      "code": "MODULE Sol;\n\nPROCEDURE Fib*(n: INTEGER): INTEGER;\n  VAR a, b, t, i: INTEGER;\nBEGIN\n  a := 0; b := 1; i := 0;\n  WHILE i < n DO\n    t := a + b;\n    a := b;\n    b := t;\n    INC(i)\n  END;\n  RETURN a\nEND Fib;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "reverse_digits",
+      "sample": 0,
+      "code": "MODULE Sol;\n\n  PROCEDURE ReverseDigits*(n: INTEGER): INTEGER;\n    VAR result: INTEGER;\n  BEGIN\n    result := 0;\n    WHILE n > 0 DO\n      result := result * 10 + n MOD 10;\n      n := n DIV 10\n    END;\n    RETURN result\n  END ReverseDigits;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "reverse_digits",
+      "sample": 1,
+      "code": "MODULE Sol;\n\n  PROCEDURE ReverseDigits*(n: INTEGER): INTEGER;\n    VAR result: INTEGER;\n  BEGIN\n    result := 0;\n    WHILE n > 0 DO\n      result := result * 10 + n MOD 10;\n      n := n DIV 10\n    END;\n    RETURN result\n  END ReverseDigits;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "reverse_digits",
+      "sample": 2,
+      "code": "MODULE Sol;\n\nPROCEDURE ReverseDigits*(n: INTEGER): INTEGER;\n  VAR result: INTEGER;\nBEGIN\n  result := 0;\n  WHILE n > 0 DO\n    result := result * 10 + n MOD 10;\n    n := n DIV 10\n  END;\n  RETURN result\nEND ReverseDigits;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "is_prime",
+      "sample": 0,
+      "code": "MODULE Sol;\n\nPROCEDURE IsPrime*(n: INTEGER): INTEGER;\nVAR i: INTEGER; result: INTEGER;\nBEGIN\n  IF n < 2 THEN\n    result := 0\n  ELSIF n = 2 THEN\n    result := 1\n  ELSIF n MOD 2 = 0 THEN\n    result := 0\n  ELSE\n    result := 1;\n    i := 3;\n    WHILE (i * i <= n) & (result = 1) DO\n      IF n MOD i = 0 THEN\n        result := 0\n      END;\n      i := i + 2\n    END\n  END;\n  RETURN result\nEND IsPrime;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "is_prime",
+      "sample": 1,
+      "code": "MODULE Sol;\n\nPROCEDURE IsPrime*(n: INTEGER): INTEGER;\n  VAR i: INTEGER; prime: BOOLEAN;\nBEGIN\n  IF n < 2 THEN\n    prime := FALSE\n  ELSIF n = 2 THEN\n    prime := TRUE\n  ELSIF n MOD 2 = 0 THEN\n    prime := FALSE\n  ELSE\n    prime := TRUE;\n    i := 3;\n    WHILE (i * i <= n) & prime DO\n      IF n MOD i = 0 THEN\n        prime := FALSE\n      END;\n      i := i + 2\n    END\n  END;\n  IF prime THEN RETURN 1 ELSE RETURN 0 END\nEND IsPrime;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "is_prime",
+      "sample": 2,
+      "code": "MODULE Sol;\n\n  PROCEDURE IsPrime*(n: INTEGER): INTEGER;\n    VAR d: INTEGER; result: INTEGER;\n  BEGIN\n    IF n < 2 THEN\n      result := 0\n    ELSIF n = 2 THEN\n      result := 1\n    ELSIF n MOD 2 = 0 THEN\n      result := 0\n    ELSE\n      result := 1;\n      d := 3;\n      WHILE (d * d <= n) & (result = 1) DO\n        IF n MOD d = 0 THEN\n          result := 0\n        END;\n        d := d + 2\n      END\n    END;\n    RETURN result\n  END IsPrime;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "digit_sum",
+      "sample": 0,
+      "code": "MODULE Sol;\n\nPROCEDURE DigitSum*(n: INTEGER): INTEGER;\n  VAR sum: INTEGER;\nBEGIN\n  sum := 0;\n  WHILE n > 0 DO\n    sum := sum + n MOD 10;\n    n := n DIV 10\n  END;\n  RETURN sum\nEND DigitSum;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "digit_sum",
+      "sample": 1,
+      "code": "MODULE Sol;\n\n  PROCEDURE DigitSum*(n: INTEGER): INTEGER;\n    VAR sum: INTEGER;\n  BEGIN\n    sum := 0;\n    WHILE n > 0 DO\n      sum := sum + n MOD 10;\n      n := n DIV 10\n    END;\n    RETURN sum\n  END DigitSum;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "digit_sum",
+      "sample": 2,
+      "code": "MODULE Sol;\n\n  PROCEDURE DigitSum*(n: INTEGER): INTEGER;\n    VAR sum: INTEGER;\n  BEGIN\n    sum := 0;\n    WHILE n > 0 DO\n      sum := sum + (n MOD 10);\n      n := n DIV 10\n    END;\n    RETURN sum\n  END DigitSum;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "collatz",
+      "sample": 0,
+      "code": "MODULE Sol;\n\nPROCEDURE Collatz*(n: INTEGER): INTEGER;\n  VAR steps: INTEGER;\nBEGIN\n  steps := 0;\n  WHILE n > 1 DO\n    IF n MOD 2 = 0 THEN\n      n := n DIV 2\n    ELSE\n      n := 3 * n + 1\n    END;\n    INC(steps)\n  END;\n  RETURN steps\nEND Collatz;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "collatz",
+      "sample": 1,
+      "code": "MODULE Sol;\n\nPROCEDURE Collatz*(n: INTEGER): INTEGER;\n  VAR steps: INTEGER;\nBEGIN\n  steps := 0;\n  WHILE n # 1 DO\n    IF n MOD 2 = 0 THEN\n      n := n DIV 2\n    ELSE\n      n := 3 * n + 1\n    END;\n    INC(steps)\n  END;\n  RETURN steps\nEND Collatz;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "collatz",
+      "sample": 2,
+      "code": "MODULE Sol;\n\nPROCEDURE Collatz*(n: INTEGER): INTEGER;\n\tVAR steps: INTEGER;\nBEGIN\n\tsteps := 0;\n\tWHILE n # 1 DO\n\t\tIF n MOD 2 = 0 THEN\n\t\t\tn := n DIV 2\n\t\tELSE\n\t\t\tn := 3 * n + 1\n\t\tEND;\n\t\tINC(steps)\n\tEND;\n\tRETURN steps\nEND Collatz;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "eval_expr",
+      "sample": 0,
+      "code": "MODULE Sol;\n\n  PROCEDURE EvalExpr*(s: ARRAY OF CHAR): INTEGER;\n    VAR pos: INTEGER;\n\n    PROCEDURE Expression(): INTEGER;\n      VAR result, right: INTEGER; op: CHAR;\n\n      PROCEDURE Factor(): INTEGER;\n        VAR value: INTEGER;\n      BEGIN\n        IF s[pos] = \"(\" THEN\n          INC(pos);                  (* consume \"(\" *)\n          value := Expression();\n          INC(pos)                   (* consume \")\" *)\n        ELSE\n          value := 0;\n          WHILE (s[pos] >= \"0\") & (s[pos] <= \"9\") DO\n            value := value * 10 + (ORD(s[pos]) - ORD(\"0\"));\n            INC(pos)\n          END\n        END;\n        RETURN value\n      END Factor;\n\n      PROCEDURE Term(): INTEGER;\n        VAR result, right: INTEGER; op: CHAR;\n      BEGIN\n        result := Factor();\n        WHILE (s[pos] = \"*\") OR (s[pos] = \"/\") DO\n          op := s[pos];\n          INC(pos);\n          right := Factor();\n          IF op = \"*\" THEN\n            result := result * right\n          ELSE\n            result := result DIV right\n          END\n        END;\n        RETURN result\n      END Term;\n\n    BEGIN\n      result := Term();\n      WHILE (s[pos] = \"+\") OR (s[pos] = \"-\") DO\n        op := s[pos];\n        INC(pos);\n        right := Term();\n        IF op = \"+\" THEN\n          result := result + right\n        ELSE\n          result := result - right\n        END\n      END;\n      RETURN result\n    END Expression;\n\n  BEGIN\n    pos := 0;\n    RETURN Expression()\n  END EvalExpr;\n\nEND Sol.\n"
+    },
+    {
+      "lang": "oberon",
+      "task": "eval_expr",
+      "sample": 1,
+      "code": "MODULE Sol;\n\n(* Integer arithmetic expression evaluator.\n   Grammar (recursive descent):\n     expr   = term { (\"+\" | \"-\") term } .\n     term   = factor { (\"*\" | \"/\") factor } .\n     factor = number | \"(\" expr \")\" .\n   Precedence: * / bind tighter than + - ; all operators left-associative.\n   Input: non-negative integer literals, operators + - * /, parentheses, no spaces. *)\n\n  VAR\n    str: ARRAY 256 OF CHAR;  (* expression being parsed *)\n    pos: INTEGER;            (* current scan position into str *)\n\n  PROCEDURE Cur(): CHAR;\n  (* Returns the current character, or 0X at end of input. *)\n  BEGIN\n    IF str[pos] = 0X THEN RETURN 0X ELSE RETURN str[pos] END\n  END Cur;\n\n  PROCEDURE^ ParseExpr(): INTEGER;\n\n  PROCEDURE ParseFactor(): INTEGER;\n    VAR n: INTEGER; c: CHAR;\n  BEGIN\n    c := Cur();\n    IF c = \"(\" THEN\n      INC(pos);            (* consume \"(\" *)\n      n := ParseExpr();\n      IF Cur() = \")\" THEN INC(pos) END  (* consume \")\" *)\n    ELSE\n      (* read a non-negative integer literal *)\n      n := 0;\n      WHILE (Cur() >= \"0\") & (Cur() <= \"9\") DO\n        n := n * 10 + (ORD(Cur()) - ORD(\"0\"));\n        INC(pos)\n      END\n    END;\n    RETURN n\n  END ParseFactor;\n\n  PROCEDURE ParseTerm(): INTEGER;\n    VAR result, rhs: INTEGER; op: CHAR;\n  BEGIN\n    result := ParseFactor();\n    WHILE (Cur() = \"*\") OR (Cur() = \"/\") DO\n      op := Cur();\n      INC(pos);            (* consume operator *)\n      rhs := ParseFactor();\n      IF op = \"*\" THEN\n        result := result * rhs\n      ELSE\n        result := result DIV rhs\n      END\n    END;\n    RETURN result\n  END ParseTerm;\n\n  PROCEDURE ParseExpr(): INTEGER;\n    VAR result, rhs: INTEGER; op: CHAR;\n  BEGIN\n    result := ParseTerm();\n    WHILE (Cur() = \"+\") OR (Cur() = \"-\") DO\n      op := Cur();\n      INC(pos);            (* consume operator *)\n      rhs := ParseTerm();\n      IF op = \"+\" THEN\n        result := result + rhs\n      ELSE\n        result := result - rhs\n      END\n    END;\n    RETURN result\n  END ParseExpr;\n\n  PROCEDURE EvalExpr*(s: ARRAY OF CHAR): INTEGER;\n    VAR i: INTEGER;\n  BEGIN\n    (* copy input into the module-level buffer, ensuring 0X termination *)\n    i := 0;\n    WHILE (i < LEN(s)) & (i < LEN(str) - 1) & (s[i] # 0X) DO\n      str[i] := s[i];\n      INC(i)\n    END;\n    str[i] := 0X;\n    pos := 0;\n    RETURN ParseExpr()\n  END EvalExpr;\n\nEND Sol."
+    },
+    {
+      "lang": "oberon",
+      "task": "eval_expr",
+      "sample": 2,
+      "code": "MODULE Sol;\n\n  PROCEDURE EvalExpr*(s: ARRAY OF CHAR): INTEGER;\n    VAR pos: INTEGER;\n\n    PROCEDURE Expression(): INTEGER;\n      VAR value, term: INTEGER; op: CHAR;\n\n      PROCEDURE Term(): INTEGER;\n        VAR value, fact: INTEGER; op: CHAR;\n\n        PROCEDURE Factor(): INTEGER;\n          VAR value: INTEGER;\n        BEGIN\n          IF s[pos] = \"(\" THEN\n            INC(pos);\n            value := Expression();\n            IF s[pos] = \")\" THEN INC(pos) END\n          ELSE\n            value := 0;\n            WHILE (s[pos] >= \"0\") & (s[pos] <= \"9\") DO\n              value := value * 10 + (ORD(s[pos]) - ORD(\"0\"));\n              INC(pos)\n            END\n          END;\n          RETURN value\n        END Factor;\n\n      BEGIN\n        value := Factor();\n        WHILE (s[pos] = \"*\") OR (s[pos] = \"/\") DO\n          op := s[pos]; INC(pos);\n          fact := Factor();\n          IF op = \"*\" THEN value := value * fact\n          ELSE value := value DIV fact END\n        END;\n        RETURN value\n      END Term;\n\n    BEGIN\n      value := Term();\n      WHILE (s[pos] = \"+\") OR (s[pos] = \"-\") DO\n        op := s[pos]; INC(pos);\n        term := Term();\n        IF op = \"+\" THEN value := value + term\n        ELSE value := value - term END\n      END;\n      RETURN value\n    END Expression;\n\n  BEGIN\n    pos := 0;\n    RETURN Expression()\n  END EvalExpr;\n\nEND Sol.\n"
+    }
+  ]
+}

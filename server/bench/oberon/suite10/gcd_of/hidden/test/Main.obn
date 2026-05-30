@@ -1,0 +1,10 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+BEGIN
+  ASSERT(Sol.GcdOf(12, 18) = 6);
+  ASSERT(Sol.GcdOf(7, 0) = 7);
+  ASSERT(Sol.GcdOf(0, 5) = 5);
+  ASSERT(Sol.GcdOf(17, 5) = 1)
+END Main.

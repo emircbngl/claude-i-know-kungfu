@@ -1,0 +1,14 @@
+MODULE Sol;
+
+  PROCEDURE Collatz*(n: INTEGER): INTEGER;
+    VAR steps: INTEGER;
+  BEGIN
+    steps := 0;
+    WHILE n # 1 DO
+      IF n MOD 2 = 0 THEN n := n DIV 2 ELSE n := 3 * n + 1 END;
+      INC(steps)
+    END
+    RETURN steps
+  END Collatz;
+
+END Sol.

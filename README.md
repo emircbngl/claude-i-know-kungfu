@@ -71,23 +71,23 @@ The MCP server is the **librarian**, not the brain: it stores, retrieves, verifi
 
 > *"Welcome to the real world."*
 
-The honest part. I ran a **blind‑agent evaluation**: fresh agents solved held‑out tasks **cold** (one‑shot, no help) vs. **with the plugin** (grounding and, where the cold attempt failed, one round of its `kungfu_verify` compile‑and‑fix loop). Every solution was scored by the real compiler in the sandbox; I did not hand‑write or coach them.
+The honest part. I ran a **controlled blind‑agent evaluation**: **10 identical tasks × 3 languages × 3 samples = 90** one‑shot solutions, each written by a fresh agent from its **own knowledge only** (no KB, no lookup, no web). Same problem and examples in every language — only the signature changes — so the one variable is the language. Every solution was scored against hidden tests by the real compiler in a `--network none` Docker sandbox. Full data (all 90 solutions + diagnostics) is committed at [`server/bench/suite10_eval.json`](server/bench/suite10_eval.json).
 
-| evaluation | cold (one‑shot, no help) | with the plugin's verify loop | delta |
-| --- | --- | --- | --- |
-| Gleam · Julia · Oberon — basic list/string tasks | 1.00 | 1.00 | **0** |
-| Gleam — a 2024 *removed* API (`result.then` → `result.try`), 5 samples | 1.00 | 1.00 | **0** |
-| Gleam — recursive‑descent expression parser (precedence + parens), 6 samples | **1.00** (6/6) | — | **0** |
-| Julia — exact factorial (BigInt; `21!` overflows Int64), 6 samples | **1.00** (6/6) | — | **0** |
-| **Oberon — the *same* parser task** (precedence + parens), 6 samples | **0.17** (1/6) | **0.83** (5/6) | **+0.66** ✅ |
+| cold pass@1 | Gleam | Julia | Oberon‑07 | overall |
+| --- | --- | --- | --- | --- |
+| 9 classic tasks (sum/gcd/fib/prime/…) | 26/27 | 27/27 | 26/27 | — |
+| **`eval_expr` — a precedence + parens parser** | **3/3** | **3/3** | **0/3** | — |
+| **all 10 tasks** | **29/30** | **30/30** | **26/30** | **85/90 (94%)** |
+
+**After feeding each cold failure its real compiler error once or twice — `kungfu_verify`, no knowledge base — 90/90.**
 
 **Two honest findings:**
 
-1. **On tasks the model already knows, the plugin adds no pass@1 — and this repo says so** rather than staging a win. A current model writes correct Gleam/Julia/Oberon for basic tasks, uses the *current* API that replaced a removed one, and even nails the **hard** tasks one‑shot in two of three languages — a full expression parser in Gleam (6/6) and exact BigInt factorials in Julia (6/6). (An earlier README showed a `0.50 → 1.00` "learning curve"; it was *staged* with hand‑picked failures and was removed — faking a number is exactly what this project opposes.)
+1. **Where the model is already good, the plugin adds nothing — and the repo says so.** 85 of 90 solutions passed cold, in three niche languages, with no help. (An earlier README staged a `0.50 → 1.00` curve from hand‑picked failures; it was removed — faking a number is what this project opposes.)
 
-2. **The gap is a *language trap*, not difficulty — and the verify loop closes it.** The *same* hard task — a precedence‑and‑parens expression parser — is **6/6 cold in Gleam but 1/6 cold in Oberon.** Both need mutual recursion; Gleam allows it across top‑level functions, but **Oberon‑07 has no forward declarations** (and OBNC forbids calling a *sibling* nested procedure). One‑shot, 4 of 6 fresh agents failed to compile (reaching for `FORWARD` or flat mutual recursion); one honestly *refused to guess*; only one compiled. Feed each failure its **real compiler error once** — `kungfu_verify` — and all four diagnose the constraint and restructure correctly: **1/6 → 5/6**. Every number is from the real compiler, independently re‑scored; tasks are reproducible under `server/bench/*/hard` and `server/bench/oberon/test/ob_calc`.
+2. **The gap is a *language trap*, not difficulty — and execution feedback closes it.** The five cold failures concentrate: four in Oberon‑07, three of them the *same* task — a recursive‑descent expression parser that is **3/3 in Gleam, 3/3 in Julia, 0/3 in Oberon.** Same mutual recursion in all three; but Oberon‑07 has **no forward declarations**, forbids calling a **sibling** nested procedure, and requires `RETURN` to be a body's last statement — rules a model pattern‑matching from C/Rust violates. Feed each failure its real compiler error and every one recovers (the Oberon fix is the true idiom: module‑level state + a procedure‑typed variable). **85/90 → 90/90**, on the compiler alone. Corroborates an earlier focused run on the same parser task (Oberon 1/6 cold → 5/6 with the loop).
 
-That second row is the whole thesis in one line: **the plugin earns its keep exactly where the model struggles — and it's execution feedback, not trust, that fixes it.**
+That second finding is the whole thesis in one line: **the plugin earns its keep exactly where the model struggles — and it's execution feedback, not trust, that fixes it.**
 
 ## Install
 
@@ -136,7 +136,7 @@ Builds on established ideas — retrieval‑augmented generation (RAG), self‑r
 - **Verification works end‑to‑end on a Docker host.** Sandboxes for **Gleam, Julia, and Oberon** (the last builds the OBNC compiler from source) build and self‑check offline (`--network none`).
 - Pure logic (knowledge store, learn engine, verifier control flow, benchmark harness) is covered by a unit‑test suite: `uv run --extra dev pytest` → **38 passing**. The codebase also passed a max‑effort multi‑agent self‑review (14 findings fixed).
 - **Honesty holds in the failure path:** with Docker stopped, `kungfu_verify` returns a structured "cannot verify" and the bench marks runs not measurable — it never fakes a pass or invents numbers.
-- **Where the plugin helps — measured, not asserted.** On tasks the model already knows, no pass@1 uplift (and the repo says so). On a genuinely hard task — an Oberon‑07 recursive‑descent parser that hits the no‑forward‑declarations trap — the gap is real and the verify‑fix loop closes it: one‑shot **1/6 → 5/6** with the loop. The value is verification + honesty + closing that gap, not making the model able to do what it already can.
+- **Where the plugin helps — measured, not asserted.** Across 90 blind runs (10 identical tasks × 3 languages × 3 samples), the model passes **85/90 cold** — so on tasks it already knows, no pass@1 uplift, and the repo says so. The gap concentrates in one place: an Oberon‑07 recursive‑descent parser that hits the no‑forward‑declarations trap (**0/3 cold**). The verify‑fix loop closes the whole gap on execution feedback alone: **85/90 → 90/90**. The value is verification + honesty + closing that gap, not making the model able to do what it already can.
 
 ## Repository layout
 

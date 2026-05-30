@@ -1,0 +1,9 @@
+MODULE Main;
+
+  IMPORT Sol;
+
+BEGIN
+  ASSERT(Sol.DigitSum(1234) = 10);
+  ASSERT(Sol.DigitSum(0) = 0);
+  ASSERT(Sol.DigitSum(99) = 18)
+END Main.

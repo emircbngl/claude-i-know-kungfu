@@ -1,0 +1,13 @@
+MODULE Sol;
+
+  PROCEDURE Fib*(n: INTEGER): INTEGER;
+    VAR a, b, t, i: INTEGER;
+  BEGIN
+    a := 0; b := 1; i := 0;
+    WHILE i < n DO
+      t := a + b; a := b; b := t; INC(i)
+    END
+    RETURN a
+  END Fib;
+
+END Sol.

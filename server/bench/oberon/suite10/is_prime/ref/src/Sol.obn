@@ -1,0 +1,18 @@
+MODULE Sol;
+
+  PROCEDURE IsPrime*(n: INTEGER): INTEGER;
+    VAR i, r: INTEGER;
+  BEGIN
+    IF n < 2 THEN
+      r := 0
+    ELSE
+      r := 1; i := 2;
+      WHILE (i * i <= n) & (r = 1) DO
+        IF n MOD i = 0 THEN r := 0 END;
+        INC(i)
+      END
+    END
+    RETURN r
+  END IsPrime;
+
+END Sol.

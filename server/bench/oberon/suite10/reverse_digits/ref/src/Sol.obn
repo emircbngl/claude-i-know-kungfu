@@ -1,0 +1,13 @@
+MODULE Sol;
+
+  PROCEDURE ReverseDigits*(n: INTEGER): INTEGER;
+    VAR r: INTEGER;
+  BEGIN
+    r := 0;
+    WHILE n > 0 DO
+      r := r * 10 + n MOD 10; n := n DIV 10
+    END
+    RETURN r
+  END ReverseDigits;
+
+END Sol.
